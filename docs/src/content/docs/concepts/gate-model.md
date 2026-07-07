@@ -182,13 +182,12 @@ Everything lives under `~/.no-mistakes/` by default. Set `NM_HOME` to relocate i
 | `daemon.pid` | Daemon identity record |
 | `config.yaml` | Global configuration |
 | `update-check.json` | Cached update check result |
-| `servers/` | PID-tracking records for managed agent servers |
+| `servers/` | PID-tracking records for legacy managed agent servers |
 | `repos/<id>.git` | Bare gate repos |
 | `repos/<id>.git/notify-push.log` | Persistent hook notification failure log |
 | `worktrees/<repoID>/<runID>/` | Disposable worktrees (cleaned up after each run) |
 | `logs/<runID>/<step>.log` | Per-step log files |
 | `logs/daemon.log` | Daemon log |
-| `logs/wizard-agent.log` | Managed agent-server output captured during setup wizard runs |
 
 New repo IDs are the first 6 bytes (12 hex chars) of `sha256(absolute_working_path)`.
 When an initialized working repo is renamed or moved, `init` preserves the existing repo ID instead of deriving a new one from the new path.

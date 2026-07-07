@@ -62,9 +62,9 @@ func TestReapOrphanedServers_RemovesStaleFileForDeadPID(t *testing.T) {
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-999999.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-999999.json", agent.ServerPIDInfo{
 		PID:       999999, // conventional "almost certainly unused" PID
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/fake",
 		StartedAt: time.Now().UTC(),
 	})
@@ -79,9 +79,9 @@ func TestReapOrphanedServers_SkipsAndRemovesOwnPID(t *testing.T) {
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-self.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-self.json", agent.ServerPIDInfo{
 		PID:       os.Getpid(),
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		StartedAt: time.Now().UTC(),
 	})
 	reapOrphanedServers(p)
@@ -97,12 +97,12 @@ func TestReapOrphanedServers_SkipsWizardOwnedRecord(t *testing.T) {
 	}
 	startedAt := time.Now().UTC()
 	const ownerPID = 54321
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-wizard.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-wizard.json", agent.ServerPIDInfo{
 		PID:            12345,
 		Owner:          agent.ServerPIDOwnerWizard,
 		OwnerPID:       ownerPID,
 		OwnerStartedAt: startedAt,
-		Agent:          "opencode",
+		Agent:          "legacy-server",
 		StartedAt:      startedAt,
 	})
 
@@ -144,12 +144,12 @@ func TestReapOrphanedServers_ReapsWizardOwnedRecordWhenOwnerPIDReused(t *testing
 		t.Fatal(err)
 	}
 	startedAt := time.Date(2026, 4, 20, 10, 0, 0, 0, time.UTC)
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-wizard-reused.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-wizard-reused.json", agent.ServerPIDInfo{
 		PID:            12345,
 		Owner:          agent.ServerPIDOwnerWizard,
 		OwnerPID:       54321,
 		OwnerStartedAt: startedAt,
-		Agent:          "opencode",
+		Agent:          "legacy-server",
 		StartedAt:      startedAt,
 	})
 

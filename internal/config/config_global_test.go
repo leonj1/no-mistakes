@@ -229,7 +229,7 @@ func TestLoadGlobal_PartialOverride(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	// Only override agent, rest should be defaults
-	data := `agent: opencode
+	data := `agent: pi
 `
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatal(err)
@@ -239,8 +239,8 @@ func TestLoadGlobal_PartialOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.Agent != types.AgentOpenCode {
-		t.Errorf("agent = %q, want %q", cfg.Agent, types.AgentOpenCode)
+	if cfg.Agent != types.AgentPi {
+		t.Errorf("agent = %q, want %q", cfg.Agent, types.AgentPi)
 	}
 	if cfg.CITimeout != DefaultCITimeout {
 		t.Errorf("ci_timeout = %v, want %v (should be default)", cfg.CITimeout, DefaultCITimeout)

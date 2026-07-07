@@ -99,7 +99,7 @@ func TestIntentJourney(t *testing.T) {
 	}
 
 	// 4. Every agent invocation - including the summarizer - must have run
-	// with the worktree as its cwd. Backends like opencode spawn a
+	// with the worktree as its cwd.
 	// long-lived server and lock its cwd from the first call; if the
 	// summarizer is invoked without setting CWD, the server roots itself
 	// in the daemon's launch directory and every subsequent step (review,

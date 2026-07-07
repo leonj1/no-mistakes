@@ -183,7 +183,7 @@ func TestRunWithRetry_CallsRetryRecoveryBeforeRetry(t *testing.T) {
 
 	calls := 0
 	recovered := false
-	_, err := runWithRetry(context.Background(), "opencode", RunOpts{}, 1, classifyTransient, func(label string) {
+	_, err := runWithRetry(context.Background(), "testagent", RunOpts{}, 1, classifyTransient, func(label string) {
 		if label == "connection refused" {
 			recovered = true
 		}

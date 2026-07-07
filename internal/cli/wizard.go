@@ -209,15 +209,6 @@ func runWizardWithMode(ctx context.Context, p *paths.Paths, state *repoState, sk
 		return wizard.Result{}, fmt.Errorf("load repo config: %w", err)
 	}
 	cfg := config.Merge(globalCfg, repoCfg)
-	// Route agent-server stdout/stderr to a log file so lines don't corrupt
-	// the wizard's alt-screen display. Any opencode/rovodev server started
-	// during the wizard inherits this sink.
-	restoreOutput := captureAgentServerOutput(p)
-	defer restoreOutput()
-	// Leave PID breadcrumbs so a daemon startup after a wizard crash can
-	// reap orphaned opencode/rovodev servers.
-	agent.SetServerPIDsDirForOwner(p.ServerPIDsDir(), agent.ServerPIDOwnerWizard)
-	defer agent.SetServerPIDsDirForOwner("", "")
 
 	suggester := newWizardAgentSuggester(cfg, workDir, nil, nil)
 	defer suggester.Close()
@@ -286,29 +277,6 @@ func runWizardWithMode(ctx context.Context, p *paths.Paths, state *repoState, sk
 	}
 	return res, err
 }
-
-// captureAgentServerOutput routes managed-server logs to a file under
-// LogsDir for the duration of the wizard, restoring the previous writer on
-// cleanup. Failing to open the log file is not fatal — we fall back to
-// io.Discard to avoid corrupting the alt-screen.
-func captureAgentServerOutput(p *paths.Paths) func() {
-	_ = os.MkdirAll(p.LogsDir(), 0o755)
-	logPath := filepath.Join(p.LogsDir(), "wizard-agent.log")
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		agent.SetManagedServerOutput(discardWriter{})
-		return func() { agent.SetManagedServerOutput(nil) }
-	}
-	agent.SetManagedServerOutput(f)
-	return func() {
-		agent.SetManagedServerOutput(nil)
-		f.Close()
-	}
-}
-
-type discardWriter struct{}
-
-func (discardWriter) Write(p []byte) (int, error) { return len(p), nil }
 
 // awaitDaemonRunRegistration waits for the daemon to register a run for
 // the given branch. A missing run within the timeout is treated as a

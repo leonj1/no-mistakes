@@ -52,14 +52,14 @@ func TestIntentMerge_RepoOverridesGlobal(t *testing.T) {
 
 func TestIntentMerge_DisabledReadersAccumulate(t *testing.T) {
 	global := &GlobalConfig{Intent: IntentRaw{DisabledReaders: []string{"codex"}}}
-	repo := &RepoConfig{Intent: IntentRaw{DisabledReaders: []string{" Rovodev "}}}
+	repo := &RepoConfig{Intent: IntentRaw{DisabledReaders: []string{" Pi "}}}
 
 	cfg := Merge(global, repo)
 	if !cfg.Intent.DisabledReaders["codex"] {
 		t.Error("codex should be disabled from global")
 	}
-	if !cfg.Intent.DisabledReaders["rovodev"] {
-		t.Error("rovodev (normalized) should be disabled from repo")
+	if !cfg.Intent.DisabledReaders["pi"] {
+		t.Error("pi (normalized) should be disabled from repo")
 	}
 }
 
@@ -74,7 +74,7 @@ intent:
   slack_days: 7
   disabled_readers:
     - codex
-    - opencode
+    - pi
 `
 	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write: %v", err)

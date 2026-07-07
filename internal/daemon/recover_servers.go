@@ -29,9 +29,8 @@ type daemonPIDFile struct {
 	StartedAt time.Time `json:"started_at,omitempty"`
 }
 
-// reapOrphanedServers kills managed-server subprocesses (opencode,
-// rovodev) left behind by a crashed predecessor daemon and deletes their
-// stale PID files.
+// reapOrphanedServers kills legacy managed-server subprocesses left behind by
+// a crashed predecessor daemon and deletes their stale PID files.
 //
 // Safety rules:
 //   - If another no-mistakes daemon is still running, skip everything so

@@ -22,12 +22,6 @@ agent_args_override:
     - -m
     - gpt-5.4
     - --full-auto
-  rovodev:
-    - --profile
-    - work
-  opencode:
-    - --model
-    - gpt-5
   droid:
     - --model
     - gpt-5-codex
@@ -42,11 +36,9 @@ agent_args_override:
 	}
 
 	cases := map[string][]string{
-		"claude":   {"--permission-mode", "acceptEdits"},
-		"codex":    {"-m", "gpt-5.4", "--full-auto"},
-		"rovodev":  {"--profile", "work"},
-		"opencode": {"--model", "gpt-5"},
-		"droid":    {"--model", "gpt-5-codex"},
+		"claude": {"--permission-mode", "acceptEdits"},
+		"codex":  {"-m", "gpt-5.4", "--full-auto"},
+		"droid":  {"--model", "gpt-5-codex"},
 	}
 	for agent, want := range cases {
 		got := cfg.AgentArgsOverride[agent]
@@ -92,13 +84,6 @@ func TestLoadGlobal_AgentArgsOverride_ReservedArgsRejected(t *testing.T) {
 		{"codex", "--json"},
 		{"codex", "--color"},
 		{"codex", "--color=never"},
-		{"rovodev", "rovodev"},
-		{"rovodev", "serve"},
-		{"rovodev", "--disable-session-token"},
-		{"opencode", "serve"},
-		{"opencode", "--hostname"},
-		{"opencode", "--port"},
-		{"opencode", "--print-logs"},
 		{"droid", "exec"},
 		{"droid", "-o"},
 		{"droid", "--output-format"},
@@ -159,10 +144,9 @@ func TestAgentArgs_ReturnsExtrasForConfiguredAgent(t *testing.T) {
 	cfg := &Config{
 		Agent: types.AgentClaude,
 		AgentArgsOverride: map[string][]string{
-			"claude":  {"--permission-mode", "acceptEdits"},
-			"codex":   {"-m", "gpt-5.4"},
-			"unused":  {"whatever"},
-			"rovodev": {"--profile", "work"},
+			"claude": {"--permission-mode", "acceptEdits"},
+			"codex":  {"-m", "gpt-5.4"},
+			"unused": {"whatever"},
 		},
 	}
 	want := []string{"--permission-mode", "acceptEdits"}

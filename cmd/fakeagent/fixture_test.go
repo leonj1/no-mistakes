@@ -10,8 +10,8 @@ import (
 func TestReadFixtureFileErrorsWhenConfiguredAgentDirectoryMissing(t *testing.T) {
 	t.Setenv("FAKEAGENT_FIXTURE", t.TempDir())
 
-	dir := fixtureDir("opencode")
-	if dir != filepath.Join(os.Getenv("FAKEAGENT_FIXTURE"), "opencode") {
+	dir := fixtureDir("claude")
+	if dir != filepath.Join(os.Getenv("FAKEAGENT_FIXTURE"), "claude") {
 		t.Fatalf("dir = %q, want joined agent fixture path", dir)
 	}
 
@@ -25,7 +25,7 @@ func TestReadFixtureFileErrorsWhenConfiguredAgentDirectoryMissing(t *testing.T) 
 	if !strings.Contains(err.Error(), "missing fixture") {
 		t.Fatalf("error = %q, want missing fixture", err)
 	}
-	if !strings.Contains(err.Error(), "opencode") {
+	if !strings.Contains(err.Error(), "claude") {
 		t.Fatalf("error = %q, want agent path detail", err)
 	}
 }

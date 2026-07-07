@@ -73,11 +73,9 @@ func TestAgentSummarizer_PromptRequiresPlainTextSummary(t *testing.T) {
 	}
 }
 
-// CWD must reach the underlying agent. Backends like opencode spawn a
-// long-lived server on first Run() and lock its cwd; if the summarizer's
-// CWD is empty, the server starts in the daemon's cwd and every later
-// pipeline step inherits the wrong server-process root, even when those
-// steps pass the correct CWD themselves.
+// CWD must reach the underlying agent. If the summarizer's CWD is empty, the
+// agent can start in the daemon's cwd and later pipeline steps can inherit the
+// wrong process root, even when those steps pass the correct CWD themselves.
 func TestAgentSummarizer_PropagatesCWD(t *testing.T) {
 	fa := &fakeAgent{output: `{"summary": "x"}`}
 	s := NewAgentSummarizer(fa, "/work/dir")

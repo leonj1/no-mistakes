@@ -55,7 +55,7 @@ func TestMerge_RepoOverridesAgent(t *testing.T) {
 
 func TestMerge_RepoDoesNotOverrideWhenEmpty(t *testing.T) {
 	global := &GlobalConfig{
-		Agent:     types.AgentRovoDev,
+		Agent:     types.AgentPi,
 		CITimeout: 2 * time.Hour,
 		LogLevel:  "debug",
 	}
@@ -67,8 +67,8 @@ func TestMerge_RepoDoesNotOverrideWhenEmpty(t *testing.T) {
 	}
 
 	cfg := Merge(global, repo)
-	if cfg.Agent != types.AgentRovoDev {
-		t.Errorf("agent = %q, want %q (empty repo should not override)", cfg.Agent, types.AgentRovoDev)
+	if cfg.Agent != types.AgentPi {
+		t.Errorf("agent = %q, want %q (empty repo should not override)", cfg.Agent, types.AgentPi)
 	}
 	if cfg.Commands.Lint != "eslint ." {
 		t.Errorf("lint = %q", cfg.Commands.Lint)

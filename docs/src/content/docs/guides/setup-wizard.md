@@ -99,7 +99,7 @@ When you leave branch name or commit subject blank, the wizard invokes the confi
 - A kebab-case branch name prefixed with a type (`feat/`, `fix/`, `chore/`, etc.)
 - A conventional-commit subject line, using `feat` or `fix` for user-facing product impact so release automation can pick it up
 
-The managed agent server (Rovo Dev or OpenCode) writes its output to `~/.no-mistakes/logs/wizard-agent.log` during these runs.
+Agent output is shown in the wizard run log during these runs.
 
 ## Environment sanity
 

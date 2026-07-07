@@ -243,8 +243,8 @@ func writeDaemonPIDFile(path string, record daemonPIDFile) error {
 }
 
 // recoverOnStartup cleans up after a previous daemon crash by marking stale
-// runs/steps as failed, killing orphaned managed-server subprocesses
-// (opencode, rovodev), and removing orphaned worktree directories. It also
+// runs/steps as failed, killing orphaned legacy managed-server subprocesses,
+// and removing orphaned worktree directories. It also
 // best-effort migrates gate bare repos in place so older installs pick up
 // the per-worktree hookspath isolation introduced for issue #122 when Git
 // supports config --worktree.

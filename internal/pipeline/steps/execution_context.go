@@ -5,7 +5,7 @@ package steps
 // worktree carved from a bare gate repository, not in the original repo.
 //
 // Why this exists: agents that scan their cwd to "verify" the project
-// (Claude Code, opencode, etc.) frequently misread a worktree's .git
+// (Claude Code, Codex, etc.) frequently misread a worktree's .git
 // pointer-file as "not a git repository" and either bail out or go
 // hunting for the real checkout, sometimes ending up at the bare gate
 // repo. The fix is not to lie about the cwd - it's to spell out what

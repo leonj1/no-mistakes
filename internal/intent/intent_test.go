@@ -292,12 +292,12 @@ func TestExtract_DisambiguatorSelectionUsesAgentNameAndSessionID(t *testing.T) {
 		LastActivity: headTime.Add(-time.Minute),
 		Messages:     []Message{{Role: RoleUser, FilePaths: []string{"foo.go", "bar.go"}}},
 	}}}
-	opencode := &staticReader{name: "opencode", sessions: []*Session{{
+	pi := &staticReader{name: "pi", sessions: []*Session{{
 		SessionID:    "same",
 		LastActivity: headTime,
 		Messages:     []Message{{Role: RoleUser, FilePaths: []string{"foo.go", "bar.go"}}},
 	}}}
-	d := &fixedDisambiguator{selectedAgentName: "opencode", selectedSessionID: "same"}
+	d := &fixedDisambiguator{selectedAgentName: "pi", selectedSessionID: "same"}
 
 	got, err := Extract(context.Background(), ExtractParams{
 		OriginCWD:     "/tmp/repo",
@@ -305,15 +305,15 @@ func TestExtract_DisambiguatorSelectionUsesAgentNameAndSessionID(t *testing.T) {
 		HeadTime:      headTime,
 		BaseTime:      headTime.Add(-time.Hour),
 		Threshold:     0.2,
-		Readers:       []Reader{claude, opencode},
-		Summarizer:    &fixedSummarizer{summary: "selected opencode"},
+		Readers:       []Reader{claude, pi},
+		Summarizer:    &fixedSummarizer{summary: "selected pi"},
 		Disambiguator: d,
 	})
 	if err != nil {
 		t.Fatalf("extract: %v", err)
 	}
-	if got.AgentName != "opencode" || got.SessionID != "same" {
-		t.Fatalf("selected = %s/%s, want opencode/same", got.AgentName, got.SessionID)
+	if got.AgentName != "pi" || got.SessionID != "same" {
+		t.Fatalf("selected = %s/%s, want pi/same", got.AgentName, got.SessionID)
 	}
 }
 
@@ -403,7 +403,7 @@ func TestExtract_NoReaders(t *testing.T) {
 
 func TestExtract_LogsAcceptedCandidatesOnly(t *testing.T) {
 	r := &staticReader{
-		name: "opencode",
+		name: "pi",
 		sessions: []*Session{{
 			SessionID:    "weak",
 			CWD:          "/tmp/repo",
@@ -433,7 +433,7 @@ func TestExtract_LogsAcceptedCandidatesOnly(t *testing.T) {
 		t.Fatalf("extract: %v", err)
 	}
 	joined := strings.Join(logs, "\n")
-	for _, want := range []string{"candidate", "opencode", "strong", "accepted"} {
+	for _, want := range []string{"candidate", "pi", "strong", "accepted"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("logs missing %q:\n%s", want, joined)
 		}

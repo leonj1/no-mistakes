@@ -36,6 +36,7 @@ func TestAgentPath_DefaultBinaries(t *testing.T) {
 		{types.AgentOpenCode, "opencode"},
 		{types.AgentPi, "pi"},
 		{types.AgentCopilot, "copilot"},
+		{types.AgentDroid, "droid"},
 	}
 	for _, tt := range tests {
 		cfg := &Config{Agent: tt.agent}
@@ -153,6 +154,22 @@ func TestResolveAgent_AutoPicksFirstAvailable(t *testing.T) {
 	}
 	if cfg.Agent != types.AgentCodex {
 		t.Errorf("agent = %q, want %q", cfg.Agent, types.AgentCodex)
+	}
+}
+
+func TestResolveAgent_AutoPicksDroid(t *testing.T) {
+	cfg := &Config{Agent: types.AgentAuto}
+	err := cfg.ResolveAgent(context.Background(), func(bin string) (string, error) {
+		if bin == "droid" {
+			return "/usr/bin/droid", nil
+		}
+		return "", &exec.Error{Name: bin, Err: exec.ErrNotFound}
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Agent != types.AgentDroid {
+		t.Errorf("agent = %q, want %q", cfg.Agent, types.AgentDroid)
 	}
 }
 
@@ -280,7 +297,7 @@ func TestResolveAgent_AutoSkipsRovoDevWithoutSubcommand(t *testing.T) {
 
 	err := cfg.ResolveAgent(context.Background(), func(bin string) (string, error) {
 		switch bin {
-		case "claude", "codex", "opencode", "pi", "copilot":
+		case "claude", "codex", "opencode", "pi", "copilot", "droid":
 			return "", &exec.Error{Name: bin, Err: exec.ErrNotFound}
 		case "acli":
 			return "/usr/bin/acli", nil

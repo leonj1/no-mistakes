@@ -22,6 +22,7 @@ agent_path_override:
   opencode: /usr/local/bin/opencode
   pi: /usr/local/bin/pi
   copilot: /usr/local/bin/copilot
+  droid: /usr/local/bin/droid
 
 agent_args_override:
   codex:
@@ -62,10 +63,10 @@ Default agent for all repos and setup-wizard suggestions. Can be overridden per-
 | | |
 |---|---|
 | Type | `string` or `string[]` |
-| Values | `auto`, `claude`, `codex`, `rovodev`, `opencode`, `pi`, `copilot`, `acp:<target>` |
+| Values | `auto`, `claude`, `codex`, `rovodev`, `opencode`, `pi`, `copilot`, `droid`, `acp:<target>` |
 | Default | `auto` |
 
-`auto` resolves to the first supported native agent found on `PATH` in this order: `claude`, `codex`, `opencode`, `acli` with `rovodev` support, `pi`, then `copilot`.
+`auto` resolves to the first supported native agent found on `PATH` in this order: `claude`, `codex`, `opencode`, `acli` with `rovodev` support, `pi`, `copilot`, then `droid`.
 `acp:<target>` uses the user-installed `acpx` binary to run an ACP target, for example `acp:gemini`.
 ACP agents are opt-in and are not considered by `agent: auto`.
 
@@ -125,6 +126,7 @@ Default native binary names when no override is set:
 | `opencode` | `opencode` |
 | `pi` | `pi` |
 | `copilot` | `copilot` |
+| `droid` | `droid` |
 
 ### agent_args_override
 
@@ -134,7 +136,7 @@ Use this to set model selection, reasoning effort, permission mode, or any other
 | | |
 |---|---|
 | Type | `map[string][]string` |
-| Keys | `claude`, `codex`, `rovodev`, `opencode`, `pi`, `copilot` |
+| Keys | `claude`, `codex`, `rovodev`, `opencode`, `pi`, `copilot`, `droid` |
 | Default | Empty (no extra flags) |
 
 User-supplied flags are inserted ahead of no-mistakes' managed flags, so your choices usually take precedence. A few flags are reserved because no-mistakes depends on them to communicate with the agent - setting any of these returns a config error on load:
@@ -147,6 +149,7 @@ User-supplied flags are inserted ahead of no-mistakes' managed flags, so your ch
 | `opencode` | `serve`, `--hostname`, `--port`, `--print-logs` |
 | `pi` | `--mode`, `--no-session` |
 | `copilot` | `-p`, `--prompt`, `--output-format`, `--no-color` |
+| `droid` | `exec`, `-o`, `--output-format`, `--input-format`, `-f`, `--file`, `--cwd`, `-w`, `--worktree`, `--worktree-dir` |
 
 For structured `codex` runs, no-mistakes also appends its own `--output-schema <tempfile>` after your overrides. Treat that flag as managed even though config validation does not currently reject it.
 
@@ -154,6 +157,7 @@ Smart defaults:
 
 - For `claude`, supplying `--permission-mode` (or `--dangerously-skip-permissions`) suppresses the default `--dangerously-skip-permissions`.
 - For `codex`, supplying `--ask-for-approval`, `--sandbox`, or `--dangerously-bypass-approvals-and-sandbox` suppresses the default `--dangerously-bypass-approvals-and-sandbox`.
+- For `droid`, supplying `--auto` or `--skip-permissions-unsafe` suppresses the default `--auto high`.
 
 Permission and sandbox flags affect the underlying agent, but they do not disable no-mistakes' pipeline prompt steering.
 Pipeline agents are still told to keep intentional writes inside the worktree and avoid mutating system state outside it.

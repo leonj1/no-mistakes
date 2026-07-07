@@ -21,8 +21,6 @@ func TestNew_KnownAgents(t *testing.T) {
 	}{
 		{name: "claude", agent: types.AgentClaude, bin: "claude", wantName: "claude"},
 		{name: "codex", agent: types.AgentCodex, bin: "codex", wantName: "codex"},
-		{name: "rovodev", agent: types.AgentRovoDev, bin: "acli", wantName: "rovodev"},
-		{name: "opencode", agent: types.AgentOpenCode, bin: "opencode", wantName: "opencode"},
 		{name: "pi", agent: types.AgentPi, bin: "pi", wantName: "pi"},
 		{name: "copilot", agent: types.AgentCopilot, bin: "copilot", wantName: "copilot"},
 		{name: "droid", agent: types.AgentDroid, bin: "droid", wantName: "droid"},
@@ -36,6 +34,20 @@ func TestNew_KnownAgents(t *testing.T) {
 			}
 			if a.Name() != tt.wantName {
 				t.Errorf("expected name %q, got %q", tt.wantName, a.Name())
+			}
+		})
+	}
+}
+
+func TestNew_RemovedAgentsRejected(t *testing.T) {
+	for _, name := range []types.AgentName{"rovodev", "opencode"} {
+		t.Run(string(name), func(t *testing.T) {
+			_, err := New(name, string(name), nil)
+			if err == nil {
+				t.Fatalf("New(%q) succeeded, want unsupported-agent error", name)
+			}
+			if !strings.Contains(err.Error(), "valid options: auto, claude, codex, pi, copilot, droid, acp:<target>") {
+				t.Fatalf("error = %v", err)
 			}
 		})
 	}
@@ -456,7 +468,7 @@ func TestFinalizeTextResult_WithSchemaAllowsNullOptionalFieldsInTextFallback(t *
 		"required":["findings","summary"]
 	}`)
 
-	result, err := finalizeTextResult("opencode", text, schema, TokenUsage{})
+	result, err := finalizeTextResult("testagent", text, schema, TokenUsage{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -31,11 +31,9 @@ type Summarizer interface {
 // agentSummarizer calls a no-mistakes agent to produce the summary.
 //
 // cwd is the working directory passed to the agent. This MUST be set to
-// the same directory the pipeline steps will run in (the worktree). Some
-// backends (e.g. opencode) spawn a long-lived server on the first Run()
-// call and lock its cwd to whatever was passed first; if the summarizer
-// runs with a different cwd than later steps, every subsequent step
-// inherits the wrong server-process cwd and can misread its environment.
+// the same directory the pipeline steps will run in (the worktree). Agents may
+// use cwd-sensitive subprocess state, so if the summarizer runs with a different
+// cwd than later steps, subsequent steps can misread their environment.
 type agentSummarizer struct {
 	agent agent.Agent
 	cwd   string

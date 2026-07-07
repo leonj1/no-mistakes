@@ -10,10 +10,9 @@ import (
 	"time"
 )
 
-// ServerPIDInfo records a managed server's identity on disk so that a
+// ServerPIDInfo records a legacy managed server's identity on disk so that a
 // freshly started daemon can reap orphaned subprocesses left behind by a
-// crashed predecessor. The file is written after the subprocess starts
-// and deleted after it shuts down cleanly.
+// crashed predecessor.
 type ServerPIDInfo struct {
 	PID            int       `json:"pid"`
 	Owner          string    `json:"owner,omitempty"`

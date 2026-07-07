@@ -26,9 +26,9 @@ func readFixtureFile(dir, flavour, name string) ([]byte, error) {
 	if dir == "" {
 		return nil, nil
 	}
-	// Try <dir>/<flavour>/<name> first (opencode layout), then
-	// <dir>/<flavour>.<ext> (claude/codex layout where flavour is
-	// the file basename and name carries the extension).
+	// Try <dir>/<flavour>/<name> first for compatibility with older fixture
+	// layouts, then <dir>/<flavour>.<ext> where flavour is the file basename
+	// and name carries the extension.
 	candidates := []string{
 		filepath.Join(dir, flavour, name),
 		filepath.Join(dir, flavour+filepath.Ext(name)),

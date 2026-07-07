@@ -180,7 +180,7 @@ func copilotUserSetAskUser(extraArgs []string) bool {
 // buildCopilotPrompt appends a JSON-output contract to the user prompt when a
 // schema is provided. The Copilot CLI has no equivalent of codex's
 // --output-schema flag, so we inline the schema in the prompt the same way pi
-// and rovodev do, then parse the final text with finalizeTextResult.
+// and parse the final text with finalizeTextResult.
 func buildCopilotPrompt(prompt string, schema json.RawMessage) string {
 	if len(schema) == 0 {
 		return prompt

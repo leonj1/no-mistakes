@@ -67,9 +67,9 @@ func TestReapOrphanedServers_KillsLiveMatchingProcess(t *testing.T) {
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-live.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-live.json", agent.ServerPIDInfo{
 		PID:       pid,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/sleep",
 		StartedAt: started,
 	})
@@ -102,9 +102,9 @@ func TestReapOrphanedServers_SkipsWhenDaemonAlive(t *testing.T) {
 
 	writeDaemonPIDRecord(t, p.PIDFile(), daemonPIDFile{PID: otherPID, StartedAt: startedAt})
 
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-999999.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-999999.json", agent.ServerPIDInfo{
 		PID:       999999,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		StartedAt: time.Now().UTC(),
 	})
 
@@ -128,9 +128,9 @@ func TestReapOrphanedServers_SkipsKillWhenStartTimeMismatched(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Bogus StartedAt far in the past makes this look like a reused PID.
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-reused.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-reused.json", agent.ServerPIDInfo{
 		PID:       pid,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/sleep",
 		StartedAt: time.Now().UTC().Add(-24 * time.Hour),
 	})
@@ -163,9 +163,9 @@ func TestReapOrphanedServers_KeepsPIDFileWhenTerminateFails(t *testing.T) {
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-live.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-live.json", agent.ServerPIDInfo{
 		PID:       pid,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/sleep",
 		StartedAt: started,
 	})
@@ -196,9 +196,9 @@ func TestReapOrphanedServers_KeepsPIDFileWhenStartTimeCheckFails(t *testing.T) {
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-live.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-live.json", agent.ServerPIDInfo{
 		PID:       pid,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/sleep",
 		StartedAt: time.Now().UTC(),
 	})
@@ -237,11 +237,11 @@ func TestReapOrphanedServers_ReapsWizardOwnedRecordWhenWizardGone(t *testing.T) 
 	if err := p.EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
-	path := writePIDRecord(t, p.ServerPIDsDir(), "opencode-wizard-live.json", agent.ServerPIDInfo{
+	path := writePIDRecord(t, p.ServerPIDsDir(), "legacy-server-wizard-live.json", agent.ServerPIDInfo{
 		PID:       pid,
 		Owner:     agent.ServerPIDOwnerWizard,
 		OwnerPID:  999999,
-		Agent:     "opencode",
+		Agent:     "legacy-server",
 		Bin:       "/bin/sleep",
 		StartedAt: started,
 	})

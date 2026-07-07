@@ -17,8 +17,8 @@ func TestWriteServerPIDFile_WritesJSONInDir(t *testing.T) {
 	info := ServerPIDInfo{
 		PID:            12345,
 		OwnerStartedAt: time.Date(2026, 4, 20, 9, 59, 0, 0, time.UTC),
-		Agent:          "opencode",
-		Bin:            "/usr/local/bin/opencode",
+		Agent:          "legacy-server",
+		Bin:            "/usr/local/bin/legacy-server",
 		Port:           54321,
 		StartedAt:      time.Date(2026, 4, 20, 10, 0, 0, 0, time.UTC),
 	}
@@ -30,7 +30,7 @@ func TestWriteServerPIDFile_WritesJSONInDir(t *testing.T) {
 	if filepath.Dir(path) != dir {
 		t.Errorf("path not under dir: %q", path)
 	}
-	if !strings.Contains(filepath.Base(path), "opencode") || !strings.Contains(filepath.Base(path), "12345") {
+	if !strings.Contains(filepath.Base(path), "legacy-server") || !strings.Contains(filepath.Base(path), "12345") {
 		t.Errorf("filename should include agent and pid, got %q", filepath.Base(path))
 	}
 
@@ -58,7 +58,7 @@ func TestWriteServerPIDFile_CreatesMissingDir(t *testing.T) {
 	parent := t.TempDir()
 	dir := filepath.Join(parent, "nested", "servers")
 
-	path := writeServerPIDFile(dir, ServerPIDInfo{PID: 2, Agent: "rovodev"})
+	path := writeServerPIDFile(dir, ServerPIDInfo{PID: 2, Agent: "legacy-server"})
 	if path == "" {
 		t.Fatal("expected path")
 	}
@@ -118,8 +118,8 @@ func TestWriteServerPIDFile_ConcurrentReadersNeverSeePartialJSON(t *testing.T) {
 		Owner:          ServerPIDOwnerDaemon,
 		OwnerPID:       4321,
 		OwnerStartedAt: time.Date(2026, 4, 20, 9, 59, 0, 0, time.UTC),
-		Agent:          "opencode",
-		Bin:            strings.Repeat("/usr/local/bin/opencode", 1<<15),
+		Agent:          "legacy-server",
+		Bin:            strings.Repeat("/usr/local/bin/legacy-server", 1<<15),
 		Port:           54321,
 		StartedAt:      time.Date(2026, 4, 20, 10, 0, 0, 0, time.UTC),
 	}
@@ -186,7 +186,7 @@ func TestWriteServerPIDFile_RetriesTransientRenameError(t *testing.T) {
 		return err != nil && strings.Contains(err.Error(), "transient")
 	}
 
-	path := writeServerPIDFile(dir, ServerPIDInfo{PID: 7, Agent: "opencode"})
+	path := writeServerPIDFile(dir, ServerPIDInfo{PID: 7, Agent: "legacy-server"})
 	if path == "" {
 		t.Fatal("expected non-empty path")
 	}
@@ -222,8 +222,8 @@ func TestReadPIDFileUntilStopped_RequiresUpdatedRead(t *testing.T) {
 		Owner:          ServerPIDOwnerDaemon,
 		OwnerPID:       4321,
 		OwnerStartedAt: time.Date(2026, 4, 20, 9, 59, 0, 0, time.UTC),
-		Agent:          "opencode",
-		Bin:            "/usr/local/bin/opencode",
+		Agent:          "legacy-server",
+		Bin:            "/usr/local/bin/legacy-server",
 		Port:           54321,
 		StartedAt:      time.Date(2026, 4, 20, 10, 0, 0, 0, time.UTC),
 	}

@@ -9,9 +9,8 @@ import (
 
 // InstallBases are the user-level agent skill parent directories, relative to
 // the user's home directory, that init populates. `~/.claude/skills` is Claude
-// Code's personal-skill location (OpenCode reads it too); `~/.agents/skills`
-// is the vendor-neutral user-level convention Codex, OpenCode, Rovo Dev, Pi,
-// and Droid all read.
+// Code's personal-skill location; `~/.agents/skills` is the vendor-neutral
+// user-level convention Codex, Pi, and Droid read.
 var InstallBases = []string{
 	filepath.Join(".claude", "skills"),
 	filepath.Join(".agents", "skills"),

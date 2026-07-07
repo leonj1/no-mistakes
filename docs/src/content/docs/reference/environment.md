@@ -20,7 +20,7 @@ When set, everything else moves under this root:
 - Logs: `$NM_HOME/logs/`
 - Database: `$NM_HOME/state.sqlite`
 - Socket / PID: `$NM_HOME/socket` and `$NM_HOME/daemon.pid`
-- Managed agent server PID records: `$NM_HOME/servers/`
+- Legacy managed agent server PID records: `$NM_HOME/servers/`
 - Managed service names get a short stable suffix derived from `$NM_HOME` so multiple installs don't collide.
 
 ## `NO_MISTAKES_BITBUCKET_EMAIL`
@@ -66,18 +66,6 @@ Disable background update checks.
 | Default | unset (checks enabled) |
 
 Update checks run on every CLI invocation except `update` itself, hit GitHub releases, cache the result in `$NM_HOME/update-check.json`, and print a one-line notification to stderr when a newer version is available. Dev builds (non-semver versions) suppress the check automatically.
-
-## `XDG_DATA_HOME`
-
-Data directory used to discover OpenCode transcripts for intent extraction.
-
-| | |
-|---|---|
-| Type | `string` |
-| Default | `~/.local/share` |
-
-When set, no-mistakes looks for OpenCode's intent transcript database at `$XDG_DATA_HOME/opencode/opencode.db`.
-When unset, it falls back to `~/.local/share/opencode/opencode.db`.
 
 ## `GLAB_CONFIG_DIR`
 

@@ -11,7 +11,7 @@ func TestModel_ApplyEvent_LogChunk_PartialLines(t *testing.T) {
 	run := testRun()
 	m := NewModel("/tmp/sock", nil, run)
 
-	// Simulate streaming chunks without trailing newlines (like OpenCode SSE deltas).
+	// Simulate streaming chunks without trailing newlines.
 	m.applyEvent(ipc.Event{
 		Type:    ipc.EventLogChunk,
 		RunID:   run.ID,

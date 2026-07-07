@@ -44,8 +44,8 @@ import (
 func TestUserJourney(t *testing.T) {
 	// Subtests run sequentially: each one calls t.Setenv to point env
 	// vars at its own temp dirs, and t.Setenv is incompatible with
-	// t.Parallel. Three serial runs cost ~30s total on a warm cache.
-	for _, agentName := range []string{"claude", "codex", "opencode"} {
+	// t.Parallel. Two serial runs cost ~20s total on a warm cache.
+	for _, agentName := range []string{"claude", "codex"} {
 		agentName := agentName
 		t.Run(agentName, func(t *testing.T) {
 			runHappyPath(t, agentName)
@@ -498,8 +498,6 @@ func assertDoctor(t *testing.T, h *Harness) {
 		"Agents",
 		"claude",
 		"codex",
-		"rovodev",
-		"opencode",
 		"pi",
 		"not found",
 	} {
@@ -507,7 +505,7 @@ func assertDoctor(t *testing.T, h *Harness) {
 			t.Errorf("doctor output should contain %q, got:\n%s", want, out)
 		}
 	}
-	for _, agentName := range []string{"claude", "codex", "opencode"} {
+	for _, agentName := range []string{"claude", "codex"} {
 		if !strings.Contains(out, filepath.Join(h.BinDir, agentName)) {
 			t.Errorf("doctor output should report fake %s path, got:\n%s", agentName, out)
 		}

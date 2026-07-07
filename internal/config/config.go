@@ -252,7 +252,7 @@ const defaultConfigYAML = `# no-mistakes global configuration
 
 # Agent to use for code generation. This may also be an ordered fallback list,
 # for example: agent: [codex, claude]
-# Options: auto, claude, codex, rovodev, opencode, pi, copilot, droid, acp:<target>
+# Options: auto, claude, codex, pi, copilot, droid, acp:<target>
 # "auto" detects the first available native agent on your system
 # Use acp:<target> to run an optional user-installed acpx target, for example acp:gemini
 agent: auto
@@ -299,8 +299,8 @@ auto_fix:
   ci: 3
 
 # User-intent extraction. When you push a branch, no-mistakes can read recent
-# transcripts from your local agent (Claude Code, Codex, OpenCode, Rovo Dev, Pi,
-# Copilot CLI), pick the session that produced the change, summarize the user
+# transcripts from your local agent (Claude Code, Codex, Pi, Copilot CLI),
+# pick the session that produced the change, summarize the user
 # intent, and feed it to review, test, document, lint, and PR agents so they
 # understand what you were trying to do - not just the diff.
 intent:
@@ -322,21 +322,17 @@ intent:
 
 // defaultBinary maps agent names to their default binary names.
 var defaultBinary = map[types.AgentName]string{
-	types.AgentClaude:   "claude",
-	types.AgentCodex:    "codex",
-	types.AgentRovoDev:  "acli",
-	types.AgentOpenCode: "opencode",
-	types.AgentPi:       "pi",
-	types.AgentCopilot:  "copilot",
-	types.AgentDroid:    "droid",
+	types.AgentClaude:  "claude",
+	types.AgentCodex:   "codex",
+	types.AgentPi:      "pi",
+	types.AgentCopilot: "copilot",
+	types.AgentDroid:   "droid",
 }
 
 // agentProbeOrder is the priority order for auto-detecting agents.
 var agentProbeOrder = []types.AgentName{
 	types.AgentClaude,
 	types.AgentCodex,
-	types.AgentOpenCode,
-	types.AgentRovoDev,
 	types.AgentPi,
 	types.AgentCopilot,
 	types.AgentDroid,
@@ -351,35 +347,6 @@ func isACPAgent(name types.AgentName) bool {
 	return target != "" && !strings.ContainsAny(target, " \t\r\n")
 }
 
-var probeRovoDevSupport = func(ctx context.Context, bin string) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, bin, "rovodev", "--help")
-	output, err := cmd.CombinedOutput()
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
-		return false, nil
-	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return false, fmt.Errorf("probe rovodev support via %q timed out", bin)
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		text := strings.ToLower(string(output))
-		if strings.Contains(text, "unknown command") ||
-			strings.Contains(text, "unknown subcommand") ||
-			strings.Contains(text, "unrecognized command") ||
-			strings.Contains(text, "no help topic for") {
-			return false, nil
-		}
-		return false, fmt.Errorf("probe rovodev support via %q: %w", bin, err)
-	}
-	return false, fmt.Errorf("probe rovodev support via %q: %w", bin, err)
-}
-
 // ResolveAgent resolves configured agent names to available agents. A single
 // explicit agent is preserved; auto is probed into the first available native
 // agent; an ordered list is filtered to available agents and kept as fallbacks.
@@ -390,6 +357,9 @@ func (c *Config) ResolveAgent(ctx context.Context, lookPath func(string) (string
 		c.Agent = firstAgent(candidates)
 		c.Agents = copyAgents(candidates)
 		if c.Agent != types.AgentAuto {
+			if !isKnownAgent(c.Agent) {
+				return unknownAgentError(c.Agent)
+			}
 			return nil
 		}
 		name, err := c.resolveAutoAgent(ctx, lookPath)
@@ -435,15 +405,6 @@ func (c *Config) resolveAutoAgent(ctx context.Context, lookPath func(string) (st
 		probed = append(probed, bin)
 		resolvedBin, err := lookPath(bin)
 		if err == nil {
-			if name == types.AgentRovoDev {
-				ok, probeErr := probeRovoDevSupport(ctx, resolvedBin)
-				if probeErr != nil {
-					return "", probeErr
-				}
-				if !ok {
-					continue
-				}
-			}
 			return name, nil
 		} else if !errors.Is(err, exec.ErrNotFound) && !errors.Is(err, fs.ErrNotExist) {
 			return "", fmt.Errorf("resolve %s agent from %q: %w", name, bin, err)
@@ -484,27 +445,32 @@ func (c *Config) resolveConfiguredAgent(ctx context.Context, name types.AgentNam
 		}
 		return resolved, err == nil, "auto", err
 	}
-	if _, ok := defaultBinary[name]; !ok && !isACPAgent(name) {
-		return "", false, string(name), fmt.Errorf("unknown agent %q; valid options: auto, claude, codex, rovodev, opencode, pi, copilot, droid, acp:<target> (set 'agent' in ~/.no-mistakes/config.yaml)", name)
+	if !isKnownAgent(name) {
+		return "", false, string(name), unknownAgentError(name)
 	}
 	bin := c.AgentPathFor(name)
-	resolvedBin, err := lookPath(bin)
+	_, err := lookPath(bin)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 			return "", false, bin, nil
 		}
 		return "", false, bin, fmt.Errorf("resolve %s agent from %q: %w", name, bin, err)
 	}
-	if name == types.AgentRovoDev {
-		ok, probeErr := probeRovoDevSupport(ctx, resolvedBin)
-		if probeErr != nil {
-			return "", false, bin, probeErr
-		}
-		if !ok {
-			return "", false, bin, nil
-		}
-	}
 	return name, true, bin, nil
+}
+
+func isKnownAgent(name types.AgentName) bool {
+	if name == types.AgentAuto {
+		return true
+	}
+	if _, ok := defaultBinary[name]; ok {
+		return true
+	}
+	return isACPAgent(name)
+}
+
+func unknownAgentError(name types.AgentName) error {
+	return fmt.Errorf("unknown agent %q; valid options: auto, claude, codex, pi, copilot, droid, acp:<target> (set 'agent' in ~/.no-mistakes/config.yaml)", name)
 }
 
 // AgentPath returns the binary path for the configured agent.
@@ -548,13 +514,11 @@ func (c *Config) AgentArgsFor(name types.AgentName) []string {
 // agentArgsOverrideAgents lists native agent names accepted as keys in
 // agent_args_override.
 var agentArgsOverrideAgents = map[string]bool{
-	string(types.AgentClaude):   true,
-	string(types.AgentCodex):    true,
-	string(types.AgentRovoDev):  true,
-	string(types.AgentOpenCode): true,
-	string(types.AgentPi):       true,
-	string(types.AgentCopilot):  true,
-	string(types.AgentDroid):    true,
+	string(types.AgentClaude):  true,
+	string(types.AgentCodex):   true,
+	string(types.AgentPi):      true,
+	string(types.AgentCopilot): true,
+	string(types.AgentDroid):   true,
 }
 
 // reservedAgentArgs lists flags that no-mistakes manages internally and that
@@ -572,17 +536,6 @@ var reservedAgentArgs = map[string]map[string]bool{
 		"exec":    true,
 		"--json":  true,
 		"--color": true,
-	},
-	string(types.AgentRovoDev): {
-		"rovodev":                 true,
-		"serve":                   true,
-		"--disable-session-token": true,
-	},
-	string(types.AgentOpenCode): {
-		"serve":        true,
-		"--hostname":   true,
-		"--port":       true,
-		"--print-logs": true,
 	},
 	string(types.AgentPi): {
 		"--mode":       true,
@@ -614,7 +567,7 @@ var reservedAgentArgs = map[string]map[string]bool{
 func validateAgentArgsOverride(override map[string][]string) error {
 	for name, args := range override {
 		if !agentArgsOverrideAgents[name] {
-			return fmt.Errorf("invalid agent name in agent_args_override: %q (valid: claude, codex, rovodev, opencode, pi, copilot, droid)", name)
+			return fmt.Errorf("invalid agent name in agent_args_override: %q (valid: claude, codex, pi, copilot, droid)", name)
 		}
 		reserved := reservedAgentArgs[name]
 		for i, arg := range args {

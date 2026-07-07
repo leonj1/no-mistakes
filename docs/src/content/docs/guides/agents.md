@@ -41,6 +41,7 @@ By default that directory is temporary and local to the machine; repos can opt i
 | OpenCode | `opencode` | Persistent HTTP server, SSE streaming |
 | Pi | `pi` | Subprocess per invocation, JSONL events |
 | Copilot | `copilot` | Subprocess per invocation, JSONL events |
+| Droid | `droid` | Subprocess per invocation, JSON result |
 | ACP target | `acpx` | Optional user-installed ACP bridge |
 
 ## Setting the agent
@@ -101,7 +102,7 @@ Use bare `/no-mistakes` to validate existing committed work.
 Use `/no-mistakes <task>` to have the agent first do the task, commit only that task's changes on a feature branch, then run the pipeline with the task text as `--intent`.
 In both modes, it resolves low-risk findings on its own and stops to relay anything that needs your decision.
 
-`no-mistakes init` installs that skill at user level: `~/.claude/skills/no-mistakes/SKILL.md` for Claude Code and `~/.agents/skills/no-mistakes/SKILL.md` for Codex, OpenCode, Rovo Dev, and Pi.
+`no-mistakes init` installs that skill at user level: `~/.claude/skills/no-mistakes/SKILL.md` for Claude Code and `~/.agents/skills/no-mistakes/SKILL.md` for Codex, OpenCode, Rovo Dev, Pi, and Droid.
 One install makes the skill available to every supported agent in every repo, without committing tool-generated files to any repo.
 If your home directory consolidates `.claude` and `.agents` with symlinks, `init` follows the links and keeps the skill reachable from both logical paths.
 Re-run `no-mistakes init` after an upgrade to refresh that skill, including overwriting stale `SKILL.md` content from an older binary.
@@ -165,6 +166,7 @@ By default, `no-mistakes` resolves `agent: auto` by checking for supported nativ
 4. `acli` with `rovodev` support
 5. `pi`
 6. `copilot`
+7. `droid`
 
 The default binary names are:
 
@@ -176,6 +178,7 @@ The default binary names are:
 | `opencode` | `opencode` |
 | `pi` | `pi` |
 | `copilot` | `copilot` |
+| `droid` | `droid` |
 | `acp:<target>` | `acpx` |
 
 When the daemon is running through a managed service, that `PATH` comes from your login shell environment on macOS and Linux plus common user, Homebrew, and system binary directories. If login-shell resolution fails, the daemon logs a warning and uses a degraded fallback `PATH` that may omit version-manager shim directories. On Windows it reuses the current process environment instead of reloading a login shell. If native agent discovery still does not resolve the binary you expect, check `~/.no-mistakes/logs/daemon.log` and use an explicit `agent_path_override`.
@@ -192,6 +195,7 @@ agent_path_override:
   opencode: /usr/local/bin/opencode
   pi: /usr/local/bin/pi
   copilot: /usr/local/bin/copilot
+  droid: /usr/local/bin/droid
 ```
 
 For ACP targets, set `acpx_path` instead of `agent_path_override`:
@@ -221,7 +225,7 @@ Each invocation returns:
 - **Text** - raw text output
 - **Usage** - token counts (input, output, cache read, cache creation)
 
-One-shot subprocess agents (Claude, Codex, Pi, Copilot CLI, and acpx) are invocation-scoped.
+One-shot subprocess agents (Claude, Codex, Pi, Copilot CLI, Droid, and acpx) are invocation-scoped.
 After no-mistakes starts one, it terminates any remaining child processes when the invocation exits, fails, or is cancelled, so agent-spawned test workers, build watchers, and dev servers do not survive the step.
 Persistent server agents (Rovo Dev and OpenCode) use their managed server lifecycle instead.
 
@@ -277,6 +281,14 @@ Any `agent_args_override.copilot` flags are inserted before no-mistakes' managed
 Reads JSONL events from stdout, streaming incremental `assistant.message_delta` text to the TUI and capturing the final `assistant.message` content.
 The Copilot CLI has no output-schema flag, so when structured output is requested no-mistakes injects the JSON schema into the prompt and validates the final text response with the same JSON fence and bare-object fallback used by Pi and Rovo Dev.
 
+## Droid
+
+Spawns a `droid` subprocess for each invocation with `exec -o json`.
+By default it adds `--auto high`, because no-mistakes steps may need to edit files, run development commands, commit, and push from the daemon worktree.
+Supplying `--auto` or `--skip-permissions-unsafe` through `agent_args_override.droid` suppresses that default.
+Any other `agent_args_override.droid` flags are inserted after `exec` and before no-mistakes' managed prompt and output flags, so user choices such as `--model` or `--reasoning-effort` take effect.
+Droid's JSON output wraps the final assistant text in a result object; when structured output is requested no-mistakes injects the JSON schema into the prompt and validates that final text response.
+
 ## ACP via acpx
 
 ACP support is optional and requires a separately installed `acpx` binary.
@@ -310,6 +322,7 @@ $ no-mistakes doctor
   – opencode (not found)
   – pi (not found)
   – copilot (not found)
+  – droid (not found)
 ```
 
 `✓` = available, `–` = not found (optional), `✗` = problem detected.

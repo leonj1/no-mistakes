@@ -110,16 +110,18 @@ public sealed partial class Database
             if (string.IsNullOrEmpty(branch))
             {
                 cmd = NewCommand(
-                    $"SELECT {RunSelectColumns} FROM runs WHERE repo_id = $repo AND status IN ('pending', 'running') ORDER BY created_at DESC, id DESC LIMIT 1");
+                    $"SELECT {RunSelectColumns} FROM runs WHERE repo_id = $repo AND status IN ($pending, $running) ORDER BY created_at DESC, id DESC LIMIT 1");
                 Bind(cmd, "$repo", repoId);
             }
             else
             {
                 cmd = NewCommand(
-                    $"SELECT {RunSelectColumns} FROM runs WHERE repo_id = $repo AND branch = $branch AND status IN ('pending', 'running') ORDER BY created_at DESC, id DESC LIMIT 1");
+                    $"SELECT {RunSelectColumns} FROM runs WHERE repo_id = $repo AND branch = $branch AND status IN ($pending, $running) ORDER BY created_at DESC, id DESC LIMIT 1");
                 Bind(cmd, "$repo", repoId);
                 Bind(cmd, "$branch", branch);
             }
+            Bind(cmd, "$pending", RunStatus.Pending);
+            Bind(cmd, "$running", RunStatus.Running);
             using (cmd)
             {
                 using var r = cmd.ExecuteReader();

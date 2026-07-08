@@ -403,7 +403,7 @@ func (c *Config) resolveAutoAgent(ctx context.Context, lookPath func(string) (st
 			}
 		}
 		probed = append(probed, bin)
-		resolvedBin, err := lookPath(bin)
+		_, err := lookPath(bin)
 		if err == nil {
 			return name, nil
 		} else if !errors.Is(err, exec.ErrNotFound) && !errors.Is(err, fs.ErrNotExist) {

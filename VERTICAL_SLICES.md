@@ -19,7 +19,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | --- | --- | --- | --- |
 | 1. Bootstrap CLI and build artifact | Done | `cmd/no-mistakes`, `internal/buildinfo`, `internal/cli` root | `NoMistakes.Cli`, `NoMistakes.Core`, `Dockerfile.dotnet` |
 | 2. Paths, environment, and config loading | Done | `internal/paths`, `internal/config` | `NoMistakes.Core`, `NoMistakes.Config` |
-| 3. SQLite run database | Planned | `internal/db`, migrations | `NoMistakes.Data` |
+| 3. SQLite run database | Done | `internal/db`, migrations | `NoMistakes.Data` |
 | 4. Git command wrapper and repository model | Planned | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
 | 5. Shell process lifecycle | Planned | `internal/shellenv` | `NoMistakes.Processes` |
 | 6. SCM URL parsing and host backends | Planned | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
@@ -91,13 +91,36 @@ slice 14 (native agent integrations); it needs the process-launch layer.
 
 ### 3. SQLite Run Database
 
+Status: Done.
+
 Port schema creation, migration behavior, run records, step records, awaiting-agent fields, and recovery updates.
+
+Ported behavior (`NoMistakes.Data`, backed by `Microsoft.Data.Sqlite`):
+
+- `Database.Open` creates the file, applies the same `repos`/`runs`/`step_results`/
+  `step_rounds`/`intent_cache` schema as Go's `internal/db/schema.go`, and replays
+  the additive `ALTER TABLE` migrations idempotently (the "duplicate column name"
+  error is tolerated, so no version table is needed). WAL, `foreign_keys`, and a
+  5s `busy_timeout` mirror the Go DSN pragmas, so a transient writer lock during
+  migration is waited out rather than failing.
+- `Repo`, `Run`, `StepResult`, `StepRound`, and `IntentCache` records round-trip
+  with the same columns, nullable semantics, cascade deletes, ULID primary keys
+  (monotonic, so the `created_at DESC, id DESC` ordering holds within a one-second
+  bucket), and the legacy `babysit` -> `ci` step-name normalization.
+- The awaiting-agent signal (`SetRunAwaitingAgent` / `ClearRunAwaitingAgent`) and
+  `RecoverStaleRuns` behave as in Go: recovery fails stale runs and in-progress
+  steps in a single transaction and drops the parked marker.
+- `GetStats` aggregates reported/fixed findings, rescue runs, and per-step/per-repo
+  rollups using the shared `NoMistakes.Core` findings model (dedup by
+  severity/file/line/description, current-round survivors count as unfixed).
 
 Acceptance checks:
 
-- Database tests use `t.TempDir()` equivalent temp roots and isolated SQLite files.
+- Database tests use isolated temp SQLite files (`TempDir`).
 - Set, clear, and recovery behavior for `awaiting_agent_since` matches Go.
-- Migration tests can open an old schema fixture and upgrade it.
+- Migration tests open an old schema fixture and upgrade it (repos fork_url and
+  step_rounds selection/fix columns).
+- `dotnet test dotnet/no-mistakes.sln --no-restore`
 
 ### 4. Git Command Wrapper and Repository Model
 

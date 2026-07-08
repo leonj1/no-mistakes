@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    curl \
+    git \
+    make \
+    openssh-client \
+    sqlite3 \
+    tar \
+    zip \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+COPY dotnet/ ./dotnet/
+
+WORKDIR /workspace/dotnet
+
+RUN dotnet restore no-mistakes.sln
+RUN dotnet build no-mistakes.sln --no-restore
+RUN dotnet test no-mistakes.sln --no-restore

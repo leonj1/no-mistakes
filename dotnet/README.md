@@ -4,8 +4,9 @@ This directory contains the incremental .NET rewrite of `no-mistakes`.
 
 The current milestone is intentionally small:
 
-- `NoMistakes.Core` contains shared logic that can be ported and tested without process or filesystem side effects.
+- `NoMistakes.Core` contains shared logic that can be ported and tested without heavy process side effects, including the `Paths` filesystem layout (`NM_HOME` and the app directory structure).
 - `NoMistakes.Cli` contains the first CLI compatibility surface: help, version output, and usage errors.
+- `NoMistakes.Config` ports paths-adjacent configuration loading: global/repo YAML parsing, Go-compatible `ci_timeout` durations, the config merge, and the code-executing-config trust boundary.
 - `NoMistakes.Tests` covers the behavior already ported.
 
 ## Build and test

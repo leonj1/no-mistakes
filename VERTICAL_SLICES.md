@@ -18,7 +18,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | Slice | Status | Primary Go Areas | Primary .NET Areas |
 | --- | --- | --- | --- |
 | 1. Bootstrap CLI and build artifact | Done | `cmd/no-mistakes`, `internal/buildinfo`, `internal/cli` root | `NoMistakes.Cli`, `NoMistakes.Core`, `Dockerfile.dotnet` |
-| 2. Paths, environment, and config loading | Planned | `internal/paths`, `internal/config` | `NoMistakes.Core`, `NoMistakes.Config` |
+| 2. Paths, environment, and config loading | Done | `internal/paths`, `internal/config` | `NoMistakes.Core`, `NoMistakes.Config` |
 | 3. SQLite run database | Planned | `internal/db`, migrations | `NoMistakes.Data` |
 | 4. Git command wrapper and repository model | Planned | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
 | 5. Shell process lifecycle | Planned | `internal/shellenv` | `NoMistakes.Processes` |
@@ -57,13 +57,37 @@ Acceptance checks:
 
 ### 2. Paths, Environment, and Config Loading
 
+Status: Done.
+
 Port `NM_HOME`, app directory layout, default config rendering, repo config parsing, YAML handling, and config precedence.
+
+Ported behavior (`NoMistakes.Core.Paths`, `NoMistakes.Config`):
+
+- `Paths` resolves `NM_HOME` or `~/.no-mistakes` and derives the DB, socket, PID,
+  config, repos, worktrees, logs, and server-PID locations; `EnsureDirs` creates them.
+- `ConfigLoader.LoadGlobal` parses `config.yaml` strictly (unknown top-level fields
+  are an error, mirroring yaml.v3 `KnownFields(true)`, so `allow_repo_commands` is
+  rejected in the global config), honors the scalar-or-list `agent` field, the legacy
+  `babysit_timeout`/`auto_fix.babysit` aliases, and validates `agent_args_override`.
+- `GoDuration` parses Go's `time.ParseDuration` format so `ci_timeout` values
+  ("168h", "2h30m", "-5m", keywords) stay wire-compatible; `ParseCiTimeout` maps
+  non-positive/keyword values to the unlimited sentinel.
+- `ConfigLoader.LoadRepo`/`LoadRepoFromBytes` parse `.no-mistakes.yaml` leniently,
+  and `EffectiveRepoConfig` enforces the trust boundary: code-executing fields
+  (`commands`, `agent`) come only from the trusted default-branch copy unless
+  `allow_repo_commands` opts in.
+- `Merge` layers global + repo config with auto-fix/intent/test defaults, and
+  `AutoFixLimit` mirrors the Go per-step limits (review auto-fix disabled by default).
 
 Acceptance checks:
 
 - Unit tests cover default paths, `NM_HOME`, config defaults, repo config parsing, and effective config merging.
 - Security tests prove code-executing config fields stay separated from untrusted pushed-branch config.
 - Compatibility tests compare representative Go and .NET config outcomes.
+- `dotnet test dotnet/no-mistakes.sln --no-restore`
+
+Deferred to later slices: native-agent PATH resolution (`ResolveAgent`) lands with
+slice 14 (native agent integrations); it needs the process-launch layer.
 
 ### 3. SQLite Run Database
 

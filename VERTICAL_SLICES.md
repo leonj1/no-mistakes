@@ -21,7 +21,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 2. Paths, environment, and config loading | Done | `internal/paths`, `internal/config` | `NoMistakes.Core`, `NoMistakes.Config` |
 | 3. SQLite run database | Done | `internal/db`, migrations | `NoMistakes.Data` |
 | 4. Git command wrapper and repository model | Done | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
-| 5. Shell process lifecycle | Planned | `internal/shellenv` | `NoMistakes.Processes` |
+| 5. Shell process lifecycle | Done | `internal/shellenv` | `NoMistakes.Processes` |
 | 6. SCM URL parsing and host backends | Done | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
 | 7. Daemon IPC and run lifecycle | Planned | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
 | 8. AXI command surface and gates | Planned | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
@@ -174,14 +174,50 @@ hook invokes lands with slice 7.
 
 ### 5. Shell Process Lifecycle
 
+Status: Done.
+
 Port cancellable process execution, process-tree isolation, clean-exit descendant reaping, output capture, and timeout behavior.
+
+Ported behavior (`NoMistakes.Processes`):
+
+- `ShellCommand` runs a subprocess in its own process group and reaps the whole
+  group on every exit path — clean exit, error, and cancellation — mirroring Go's
+  `ConfigureShellCommand` + `RunShellCommand` + `TerminateShellCommandGroup`.
+  Because .NET has no `Setpgid` on `ProcessStartInfo`, the child is launched via
+  `setsid` so it leads a new session/process group (its PID is the group id), and
+  the group is killed with `kill(-pid, SIGKILL)` via P/Invoke. This catches
+  reparented orphans (a test runner's worker pool, a build watcher) that a
+  parent-child tree walk — .NET's `Process.Kill(entireProcessTree)` — would miss,
+  the leak that otherwise accumulates until the host OOMs and the OS SIGKILLs the
+  daemon.
+- `RunAsync`/`OutputAsync`/`CombinedOutputAsync` capture output while a
+  `WaitDelay` backstop bounds how long a read waits after the leader exits, so a
+  grandchild that inherited and still holds the stdout/stderr pipe cannot wedge
+  the read forever (it degrades to returning the captured-so-far content).
+- `ShellEnvironment` resolves the login shell's environment (`LoginShell` via
+  `$SHELL`/getent, `SupportsInteractive`, `Resolve` probing `env -0`, `ApplyToProcess`,
+  `WellKnownBinDirs`, `AugmentPath`, `ParseEnvOutput`) so spawned tools inherit
+  the interactive PATH (nvm/fnm/volta, Homebrew, language package managers). A
+  successful probe is cached; a degraded fallback is deliberately not cached so a
+  single bad startup cannot poison later resolutions (#143).
 
 Acceptance checks:
 
-- Tests prove grandchildren are killed on cancellation.
-- Tests prove leaked descendants are reaped after clean command exit.
-- Output-reading commands cannot hang forever when a descendant holds inherited pipes open.
-- Windows behavior has explicit tests or documented parity gaps before release.
+- A leaked grandchild is reaped after a clean command exit
+  (`ReapsGrandchildAfterCleanExit`), and killed on cancellation
+  (`KillsGrandchildOnCancellation`) — both spawn real `/bin/sh` subprocesses.
+- Output capture with an inherited-pipe-holding grandchild returns promptly with
+  the leader's output rather than blocking
+  (`CombinedOutput_ReturnsCleanExitWithInheritedPipeGrandchild`).
+- Env resolution parses `env -0`, augments PATH without duplicates, synthesizes
+  PATH when absent, and does not cache a degraded fallback.
+- `docker build -f Dockerfile.test.dotnet .` runs the suite (200 tests).
+
+Parity gap: process-group isolation is POSIX-only (Linux/macOS via
+`setsid`/`kill(-pgid)`). On platforms without process groups, `TerminateGroup`
+degrades to a best-effort `Process.Kill(entireProcessTree)`, which cannot catch
+reparented orphans; the reaping-on-clean-exit tests are POSIX-gated. Windows
+job-object parity is deferred until a Windows target is in scope.
 
 ### 6. SCM URL Parsing and Host Backends
 

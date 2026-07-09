@@ -215,3 +215,52 @@
   matching create/update.
 - Docker verification: 437 tests passed (416 baseline + 21 new). Slice 6
   marked Done in VERTICAL_SLICES.md.
+
+## Slice 7a (branch `claude/vertical-slice-seven-ipc`)
+
+- Slice 7 branch is cut from `origin/main` (slice-4 merge `9226807`) like
+  slice 6 was; slices 5 (PR #7) and 6 are still open, so `STEPS.md`/`NOTES.md`
+  were carried over from the slice-6 branch via `git checkout <branch> -- ...`
+  (they are not on main yet). Expect the usual sln/test-csproj merge-conflict
+  anchors when the open PRs merge.
+- `NoMistakes.Ipc` (`dotnet/src/NoMistakes.Ipc/`) ports Go
+  `internal/ipc/protocol.go`. Sln GUID
+  `{5B7C3D9E-4A2F-4C6B-8D1E-2A0F3B5C7D9E}`, nested under `src`, usual 12
+  config lines; sln BOM preserved.
+- Shape: statics `Methods` (`push_received` = what `daemon notify-push`
+  sends, `cancel_run`, etc.) and `ErrorCodes`; classes `Request`/`Response`/
+  `RpcError` with `JsonElement?` standing in for Go `json.RawMessage`;
+  factories on static `Protocol` (`NewRequest` auto-increments a shared id
+  via `Interlocked.Increment`, mirroring Go's atomic counter). Params/results
+  in `Messages.cs`, `RunInfo`/`StepResultInfo`/`IpcEvent`(+`EventTypes`) in
+  `WireTypes.cs`. Go's `Event` is named `IpcEvent` (bare `Event` is
+  unpleasant in C#).
+- JSON: explicit `[JsonPropertyName]` snake_case everywhere (repo
+  convention); shared `IpcJson.Options` = `WhenWritingNull` +
+  `PropertyNameCaseInsensitive`. Go pointer-omitempty fields are nullable;
+  value-typed omitempty (`RunInfo.AwaitingAgent`,
+  `StepResultInfo.{Reported,Fixed}Findings`) use
+  `[JsonIgnore(WhenWritingDefault)]`. Empty-STRING omitempty parity is NOT
+  preserved ("" serializes as "") — both sides parse tolerantly, accepted.
+- Step-name normalization ("babysit" → "ci", Go `StepName.UnmarshalJSON`)
+  is per-property converters `StepNameJsonConverter`/`StepNameListJsonConverter`
+  (in `IpcJson.cs`) on `RespondParams.Step`, `SkipSteps` lists,
+  `StepResultInfo.StepName`, `IpcEvent.StepName` — NOT a global string
+  converter. New step-name fields must remember the attribute.
+- Framing: `JsonLineStream` (one JSON doc per `\n`-terminated line) mirrors
+  Go's `json.Encoder`+`bufio.Scanner` pair including the 1 MiB cap
+  (`MaxMessageBytes`; a message of exactly 1 MiB is accepted, +1 byte throws
+  `IOException`). Clean EOF at a boundary reads as `null`; EOF mid-line
+  throws. Not concurrency-safe — 7b's client/server must serialize access
+  (Go ipc.Client mutex). 7b should also add the 30s read deadline
+  (Go client.Call `SetReadDeadline`) at the client layer, not in
+  `JsonLineStream`.
+- `Core.Finding` gained `[JsonPropertyName]` tags (Go json tags) so
+  `RespondParams.AddedFindings` serializes correctly; `FindingsParser` is
+  unaffected (it uses its own wire classes).
+- Tests: `IpcProtocolTests.cs` (protocol_test.go port + babysit
+  normalization) and `IpcSocketRoundTripTests.cs` (unix-domain socket pair
+  in temp dir — the daemon transport; covers cancel_run and notify-push
+  round trips, error response, pipelined framing, subscribe event stream,
+  oversized-message rejection, mid-message EOF). Docker verification:
+  212 tests passed (185 main baseline + 27 new).

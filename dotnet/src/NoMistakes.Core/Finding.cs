@@ -7,16 +7,33 @@ namespace NoMistakes.Core;
 /// A single review, test, lint, or PR comment finding. Mirrors Go's
 /// types.Finding. Only the subset needed by the run database (stats
 /// aggregation) is modelled here; richer behavior lands with later slices.
+/// The JsonPropertyName tags mirror Go's json tags so the type serializes
+/// directly on wire surfaces (e.g. the IPC RespondParams.AddedFindings).
 /// </summary>
 public sealed class Finding
 {
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("severity")]
     public string Severity { get; set; } = string.Empty;
+
+    [JsonPropertyName("file")]
     public string File { get; set; } = string.Empty;
+
+    [JsonPropertyName("line")]
     public int Line { get; set; }
+
+    [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("action")]
     public string Action { get; set; } = string.Empty;
+
+    [JsonPropertyName("source")]
     public string Source { get; set; } = string.Empty;
+
+    [JsonPropertyName("user_instructions")]
     public string UserInstructions { get; set; } = string.Empty;
 }
 

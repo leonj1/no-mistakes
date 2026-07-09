@@ -20,7 +20,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the Bitbucke
 - [x] **Slice 6c — Existing PR/MR lookup and fork routing.** Port existing PR/MR lookup: GitHub fork lookup lists by bare branch and filters returned head-owner fields (never passes `<owner>:<branch>` to the list command); GitLab/Bitbucket fork routing fails closed on unsupported self-PR cases. Tests cover GitHub fork-owner filtering and the fail-closed GitLab/Bitbucket paths. Mark slice 6 Done in `VERTICAL_SLICES.md` and open the PR.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the PR/MR-lookup tests passing, slice 6 is marked Done in `VERTICAL_SLICES.md`, and a PR is open against `main`.
 
-- [ ] **Slice 7a — Scaffold `NoMistakes.Ipc`; IPC protocol.** Scaffold the `NoMistakes.Ipc` project and port the IPC request/response protocol, including the `CancelRun` and `notify-push` message types, with serialization round-trip tests over a socket pair.
+- [x] **Slice 7a — Scaffold `NoMistakes.Ipc`; IPC protocol.** Scaffold the `NoMistakes.Ipc` project and port the IPC request/response protocol, including the `CancelRun` and `notify-push` message types, with serialization round-trip tests over a socket pair.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with IPC request/response round-trip tests passing.
 
 - [ ] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.

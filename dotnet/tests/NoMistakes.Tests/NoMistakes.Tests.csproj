@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
+    <!-- xUnit1051 asks every CancellationToken-accepting call to thread
+         TestContext.Current.CancellationToken. These git-wrapper tests run
+         fast, local subprocesses; the ambient test timeout is sufficient, so
+         we do not thread a token through every assertion. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,5 +22,6 @@
     <ProjectReference Include="..\..\src\NoMistakes.Config\NoMistakes.Config.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Core\NoMistakes.Core.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Data\NoMistakes.Data.csproj" />
+    <ProjectReference Include="..\..\src\NoMistakes.Git\NoMistakes.Git.csproj" />
   </ItemGroup>
 </Project>

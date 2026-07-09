@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace NoMistakes.Git;
+namespace NoMistakes.Scm.SafeUrl;
 
 /// <summary>
 /// Hides credentials embedded in URLs before they reach logs or error text.
@@ -8,9 +8,9 @@ namespace NoMistakes.Git;
 /// blob of text and replaces any userinfo component with "redacted", leaving
 /// non-URL and credential-free text unchanged.
 ///
-/// This is a minimal copy local to the git wrapper (the only slice-4 consumer);
-/// slice 6 (SCM URL parsing) promotes the full safeurl surface to a shared
-/// package.
+/// This is the shared safeurl surface promoted from the slice-4 local copy in
+/// <c>NoMistakes.Git</c>; the git wrapper and the SCM backends both consume it
+/// from here.
 /// </summary>
 public static partial class Redactor
 {

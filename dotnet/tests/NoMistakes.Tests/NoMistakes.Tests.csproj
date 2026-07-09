@@ -23,5 +23,6 @@
     <ProjectReference Include="..\..\src\NoMistakes.Core\NoMistakes.Core.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Data\NoMistakes.Data.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Git\NoMistakes.Git.csproj" />
+    <ProjectReference Include="..\..\src\NoMistakes.Processes\NoMistakes.Processes.csproj" />
   </ItemGroup>
 </Project>

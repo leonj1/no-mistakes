@@ -27,7 +27,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 8. AXI command surface and gates | Done | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
 | 9. Pipeline executor and step contracts | Done | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |
 | 10. Review, test, lint, and format steps | Done | `internal/pipeline/steps/review.go`, `test.go`, `lint.go`, `format.go` | `NoMistakes.Pipeline.Steps` |
-| 11. Rebase, push, and force-push safety | Planned | `internal/pipeline/steps/rebase.go`, `push.go`, `forcepush.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Git` |
+| 11. Rebase, push, and force-push safety | Done | `internal/pipeline/steps/rebase.go`, `push.go`, `forcepush.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Git` |
 | 12. PR and MR creation | Planned | `internal/pipeline/steps/pr.go`, SCM backends | `NoMistakes.Pipeline.Steps`, `NoMistakes.Scm` |
 | 13. CI monitor and auto-fix loop | Planned | `internal/pipeline/steps/ci*.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Daemon` |
 | 14. Native agent integrations | Planned | `internal/agent` | `NoMistakes.Agent` |
@@ -347,15 +347,53 @@ Acceptance checks:
 
 ### 11. Rebase, Push, and Force-Push Safety
 
+Status: Done.
+
 Port authoritative remote-base fetching, bundled local-default detection, force-push lease decisions, patch-id incorporation checks, and push routing.
+
+Ported behavior (`NoMistakes.Pipeline.Steps`):
+
+- `ForcePush.ResolveDecisionAsync` ports Go's `resolveForcePushDecision`: it
+  re-reads the live remote head via a `GitRunner` seam and allows the push only
+  when the branch is new, the remote already equals the head, the remote still
+  equals `lastSeenSha`, or every commit now on the remote is already incorporated
+  by patch-id (`rev-list --cherry-pick --right-only HEAD...remote`), excluding the
+  history the run knowingly rewrites (`^baseSha`). Anything else throws
+  `ForcePushWouldDiscardException`; a git failure fails safe (never a blind
+  `--force`). `RemoteCommitsNotIncorporatedAsync` and `LsRemoteShaAsync` mirror
+  their Go counterparts.
+- `PushStep` runs the optional format command, commits agent changes, and routes
+  every push through `ForcePush.ResolveDecisionAsync` with the lease anchored to
+  `LastFetchedBranchTipAsync` (the last-observed head, not a live read). Fork
+  targets use `Repo.PushUrl()`; the fork tracking ref is used for `lastSeen`.
+- `RebaseStep` fetches `origin/<default>` (and the branch tracking ref on a normal
+  push only) before rebasing onto those remote-tracking refs; on a force push it
+  deliberately skips the branch fetch/rebase so the tracking ref stays the
+  last-observed head (the push step's lease anchor).
+  `DetectBundledLocalDefaultCommitsAsync` parks with an ask-user finding when the
+  gated branch carries unpushed local-default commits; the normal path surfaces
+  merge-conflict findings and the empty-diff `SkipRemaining` shortcut. The agent
+  conflict-resolution path drives `IAgent`.
+
+The in-repo test-evidence staging (Go's `stageInRepoEvidence`) is deferred to the
+evidence slice; the safety-critical push routing is complete.
 
 Acceptance checks:
 
-- Rebase uses freshly fetched remote tracking refs, not local default branch state.
-- Unpushed local default-branch commits bundled into a gated branch require approval.
-- Force-push refuses to clobber unseen upstream commits.
-- `lastSeenSHA` remains the last observed head, not a live ref read immediately before pushing.
-- Fork push targets use `Repo.PushURL()` equivalent behavior.
+- Rebase uses freshly fetched remote tracking refs, not local default-branch state
+  (empty-diff test rebases and detects no delta).
+- Unpushed local default-branch commits bundled into a gated branch require
+  approval (`BundledLocalDefaultCommits_ParksWithAskUser`, #283).
+- Force-push refuses to clobber unseen upstream commits
+  (`RefusesUnincorporatedRemoteCommit`, `RefusesOutOfBandEvenWithBase`) and allows
+  incorporated/known-base rewrites (`AllowsWhenRemoteContentIncorporated`,
+  `AllowsRewriteOfKnownBaseHistory`).
+- `lastSeenSha` remains the last observed head (`RemoteUnchangedSinceLastSeen`);
+  the lease is anchored to a SHA read immediately before pushing only for the
+  content check, never as the fast-path anchor.
+- Fork push targets use `Repo.PushUrl()`.
+- `docker build -f Dockerfile.test.dotnet .` restores, builds, and runs the
+  suite (709 tests).
 
 ### 12. PR and MR Creation
 

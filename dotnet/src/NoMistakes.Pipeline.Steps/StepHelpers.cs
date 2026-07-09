@@ -103,6 +103,49 @@ internal static class StepHelpers
     public static string NormalizedBranchRef(string reference) =>
         reference.StartsWith("refs/", StringComparison.Ordinal) ? reference : "refs/heads/" + reference;
 
+    /// <summary>The fork branch's remote-tracking ref prefix. Mirrors Go's forkBranchRefPrefix.</summary>
+    public const string ForkBranchRefPrefix = "refs/remotes/no-mistakes-push/";
+
+    /// <summary>The fork branch's remote-tracking ref. Mirrors Go's forkBranchTrackingRef.</summary>
+    public static string ForkBranchTrackingRef(string branch) => ForkBranchRefPrefix + branch;
+
+    /// <summary>
+    /// The SHA of the branch's remote-tracking ref the rebase step last synced —
+    /// the head the run last observed. On a force push the rebase step leaves it
+    /// stale on purpose, so it stays the last-observed head (the force-push lease
+    /// anchor). Returns "" when the ref does not resolve. Mirrors Go's
+    /// lastFetchedBranchTip.
+    /// </summary>
+    public static async Task<string> LastFetchedBranchTipAsync(StepContext sctx, string branch, bool fork)
+    {
+        var trackingRef = fork ? ForkBranchTrackingRef(branch) : "refs/remotes/origin/" + branch;
+        try
+        {
+            var sha = await Git.RunAsync(sctx.WorkDir,
+                new[] { "rev-parse", "--verify", "--quiet", trackingRef + "^{commit}" }, sctx.Ct).ConfigureAwait(false);
+            return sha.Trim();
+        }
+        catch (GitCommandException)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>True when ancestor is an ancestor of descendant. Mirrors Go's isAncestor.</summary>
+    public static async Task<bool> IsAncestorAsync(StepContext sctx, string ancestor, string descendant)
+    {
+        try
+        {
+            await Git.RunAsync(sctx.WorkDir, new[] { "merge-base", "--is-ancestor", ancestor, descendant }, sctx.Ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (GitCommandException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Stages, commits, and updates the branch ref for agent-made changes, then
     /// records the new head on the run. A clean worktree is a no-op. Mirrors Go's

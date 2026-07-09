@@ -1,0 +1,12 @@
+OVERSIZED.md written. 8 of 43 steps too big for one pass:
+
+- **6b** — command wrappers + auth for four providers, one step.
+- **10b** — three pipeline steps plus agent test-fallback plus evidence artifacts.
+- **12c** — two providers' MR/PR create+update plus fail-closed fork routing.
+- **13a** — GitHub checks plus GitLab REST jobs plus legacy fallback, two integrations.
+- **16c** — "port the setup wizard," undecomposed interactive flow.
+- **16d** — update checks and telemetry, two unrelated features.
+- **17c** — three e2e domains (push safety, fork routing, CI monitoring) mapping to whole slices 11–13.
+- **17e.2** — open-ended Windows job-object parity: resolve-or-document decision plus possible platform implementation plus final PR.
+
+Rest fine — sub-splits (6a.1–3, 8c.1–2, 9b.1–3, 13c.1–3, 16a.1–3, 17a.1–3, 17d.1–3) already sized right. STEPS.md and PLAN.md untouched.

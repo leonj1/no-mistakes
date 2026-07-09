@@ -1,0 +1,9 @@
+Slice 6c done. PR open: https://github.com/leonj1/no-mistakes/pull/8
+
+What landed:
+
+- `IHost.FindPRAsync(branch, baseBranch)` on all four hosts, null = no open PR (Go's `nil, nil`). GitHub/GitLab keep Go's unparseable-output-returns-nil behavior; Azure throws `az repos pr list: parse response: ...`; Bitbucket delegates to already-ported `Client.FindOpenPRBySourceBranchAsync`.
+- GitHub fork support: 5-arg ctor takes `forkRepo` slug (Go `NewWithFork`), keeps only owner. `CreatePRAsync` passes `--head fork-owner:branch`; lookup lists by **bare** branch and filters `headRefName`/`headRepositoryOwner.login` — test poisons the `<owner>:<branch>` fixture key so regression fails loudly.
+- New `NoMistakes.Scm.ForkRouting.SkipReason(provider, forkUrl)` — pure port of Go buildHost fork guards. Null for GitHub or blank fork URL; exact Go skip strings for GitLab/Bitbucket/Azure DevOps; unknown provider also fails closed. Slice 12's buildHost port consumes this.
+- Docker verification: 437 tests passed (416 baseline + 21 new), first run green.
+- Slice 6 marked Done in `VERTICAL_SLICES.md`, 6c checked in `STEPS.md`, NOTES.md updated with conventions for slice 12 (buildHost must call `ForkRouting.SkipReason` before constructing non-GitHub hosts).

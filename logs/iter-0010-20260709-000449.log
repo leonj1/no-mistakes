@@ -1,0 +1,7 @@
+Step 5 genuinely done. No changes to STEPS.md or FIXES.md needed.
+
+Verified:
+- Bitbucket: `Client.cs` (REST wrapper) + `Host.cs` — auth check at client construction (`NO_MISTAKES_BITBUCKET_*` creds), PR state normalization, latest-status dedup, pipeline UUID extraction, failed-log fetch degrading to `""`.
+- Azure DevOps: `Host.cs` + `RemoteUrl.cs` — `az` wrapper with `--organization`/`--project`/`--repository` scoping, extension probe + auth probe (`az devops project list`), stdout-only JSON parsing, policy-eval to check mapping (Build/Status only), merge-status normalization.
+- Tests: 4 files, 57 test methods total, covering command/argument construction and auth paths (installed/missing extension/unauthenticated for az; null-client/configured for Bitbucket).
+- Acceptance: `docker build -f Dockerfile.test.dotnet .` succeeds; ran Bitbucket/AzureDevOps tests fresh inside built image — 126 passed, 0 failed.

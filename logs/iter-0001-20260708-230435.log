@@ -1,0 +1,6 @@
+PLAN.md + STEPS.md written. GOAL.md already had full task list (slices 6–17 of .NET port), so no QUESTIONS.md needed.
+
+- PLAN.md: overview, goals (all safety invariants from CLAUDE.md called out — trust boundary, force-push lease guard, process-tree lifecycle, awaiting-agent invariant, fork routing, GitLab quirks, CI idle timeout), constraints (TDD, Docker-only builds via `Dockerfile.test.dotnet`, per-slice PR workflow), architecture table mapping slices to .NET projects and Go sources.
+- STEPS.md: 12 checkbox steps, one per slice (6–17), sequential dependency order. Each ends with `Done when:` requiring green `docker build -f Dockerfile.test.dotnet .`, slice marked Done in `VERTICAL_SLICES.md`, PR open against `main`. Slice 17 adds publish artifact + CI workflow checks.
+
+No implementation done.

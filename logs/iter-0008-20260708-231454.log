@@ -1,0 +1,11 @@
+OVERSIZED.md written. 7 steps flagged as too big for one pass:
+
+- **7e** — two unrelated features (abort-by-id + notify-push wiring) plus PR bookkeeping
+- **8c.2** — 3 verbs × 4 flags gate-response matrix
+- **10b.2** — configured test command + agent-driven fallback + evidence artifacts
+- **10c** — prompt + findings schema + risk assessment + auto-fix default in one step
+- **14a** — scaffold + interface + `ResolveAgent` + fixture harness
+- **17d.3** — 3 OS publish targets + archives + install scripts
+- **17e.3** — unbounded scope; depends on 17e.2 assessment, each resolve-marked Windows gap is own feature
+
+Rest of steps one-pass sized. STEPS.md/PLAN.md untouched, nothing implemented.

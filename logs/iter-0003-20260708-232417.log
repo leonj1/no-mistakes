@@ -1,0 +1,10 @@
+Slice 6a.2 done. `docker build -f Dockerfile.test.dotnet .` green: 197 tests passed, 0 failed (baseline 185 + 12 new). Committed as `308d199` on `claude/vertical-slice-six-scm`.
+
+What landed:
+- `Provider.cs` — enum Unknown/GitHub/GitLab/Bitbucket/AzureDevOps
+- `ProviderDetector.cs` — Go `DetectProvider` port: substring match for known hosts, then glab/gh CLI config fallback for self-hosted GitLab (`config.yml` host keys + `api_host`) and GHE (`hosts.yml`), fail-closed to Unknown on missing/malformed config. YamlDotNet 13.7.1 added to Scm csproj — same version already in solution via `NoMistakes.Config`, not new dependency.
+- `RemoteHost.cs` — `ExtractHost` port, internal for now; slice 6a.3 promotes it public with own tests.
+- `AzureDevOps/RemoteUrl.cs` — `TryParseRemote` (all five Go-supported forms: HTTPS, org-userinfo, SSH v3, visualstudio.com ± collection, vs-ssh; PR-URL suffix ignored, percent-decoded segments) plus internal `WebPRUrl`.
+- Tests: `ProviderDetectorTests` (HTTPS/SSH/enterprise/subgroup/malformed for all four providers, glab/gh fallback + fail-closed cases) and `AzureDevOpsRemoteUrlTests` (full Go table + webPRURL cases).
+
+STEPS.md marked `[x]`; NOTES.md carries decisions for 6a.3+ (internal `ExtractHost` handoff, enum vs Go strings, env-mutating test convention, YamlDotNet pin).

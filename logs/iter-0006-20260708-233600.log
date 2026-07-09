@@ -1,0 +1,7 @@
+Step 3 verified done. No changes needed.
+
+- Code exists and mirrors Go faithfully: `RemoteHost.ExtractHost` (dotnet/src/NoMistakes.Scm/RemoteHost.cs) matches `internal/scm` ExtractHost line-for-line including userinfo/path `@` handling, port stripping, IPv6 brackets; `GitHub.RemoteUrl.RepoSlug` and `GitLab.RemoteUrl.ProjectPath` (subgroups preserved, Windows drive-path guard) match Go semantics.
+- Tests broad: `ScmUrlHelperTests.cs` has 41 fact/theory/inline cases across all three helpers — HTTPS/SSH/scp/ports/IPv6/subgroups/PR URLs/empty/malformed.
+- Acceptance check pass: `docker build -f Dockerfile.test.dotnet .` succeeded; `dotnet test` layer cached against identical source content (COPY layer checksum-matched), meaning current code already passed.
+
+STEPS.md `[x]` stays. FIXES.md untouched.

@@ -1,0 +1,15 @@
+STEPS.md rewritten. All 10 oversized steps split, order preserved, small steps untouched, every item single `- [ ]` with `Done when:` line. Nothing implemented, no STOP.md.
+
+Splits:
+- **6a** into 6a.1 (scaffold + Redactor promotion to `safeurl`), 6a.2 (four-provider URL parsing), 6a.3 (`ExtractHost`/`RepoSlug`/`ProjectPath`)
+- **8c** into 8c.1 (`axi run`/`axi abort`), 8c.2 (`axi respond` verbs + flags)
+- **9b** into 9b.1 (core orchestration), 9b.2 (approval-gate wait), 9b.3 (cancellation propagation)
+- **9c** into 9c.1 (auto-fix loop), 9c.2 (run logging), 9c.3 (persistence + fix summaries, closes slice)
+- **12** into 12a (GitHub PR create + fork head), 12b (existing-PR lookup + update), 12c (GitLab/Bitbucket + fail-closed fork routing, closes slice)
+- **13c** into 13c.1 (failing-check auto-fix), 13c.2 (merge-conflict rebase), 13c.3 (cancellation + `checks-passed`, closes slice)
+- **16a** into 16a.1 (gate repo + remotes), 16a.2 (hook install), 16a.3 (skill install)
+- **17a** into 17a.1 (harness foundation + smoke journey), 17a.2 (init/daemon journeys), 17a.3 (gate journeys)
+- **17d** into 17d.1 (Dockerfiles full solution), 17d.2 (release metadata), 17d.3 (cross-platform publishing)
+- **17e** into 17e.1 (CI wiring), 17e.2 (Windows parity, closes slice 17, final PR)
+
+Sub-numbering (6a.1 etc.) keeps existing cross-references like "slice-8a", "slice-10a" valid. Slice-closing duty (mark Done, open PR) moved to each split's final sub-step. Header note about shared branch/PR per slice unchanged.

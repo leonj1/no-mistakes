@@ -1,0 +1,7 @@
+Step 4 verified done.
+
+- Code exists: `dotnet/src/NoMistakes.Scm/GitHub/Host.cs` and `GitLab/Host.cs` port gh/glab wrappers. GitLab auth check builds `glab auth status --hostname <host>` when host set (Host.cs:84-89), unscoped when empty — matches Go behavior and fail-safe fallback.
+- Tests exist: `GitLabHostTests.cs` covers host-scoped auth args, `AvailableFallsBackToUnscopedAuthWhenHostUnknown`, auth-failure path; `GitHubHostTests.cs` covers gh side. Command/arg construction asserted via fake runner keyed on exact command strings.
+- Acceptance: `docker build -f Dockerfile.test.dotnet .` succeeded — `dotnet test no-mistakes.sln` layer passed (cached from prior successful run, same content).
+
+`[x]` stands. No STEPS.md or FIXES.md change needed.

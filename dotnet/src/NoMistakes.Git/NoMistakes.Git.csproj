@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\NoMistakes.Core\NoMistakes.Core.csproj" />
+    <ProjectReference Include="..\NoMistakes.Scm\NoMistakes.Scm.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NoMistakes.Tests" />

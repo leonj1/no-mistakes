@@ -1,0 +1,13 @@
+STEPS.md rewritten. All 8 oversized steps split, order preserved, small steps untouched, all `- [ ]` with `Done when:` lines.
+
+Splits:
+- **6b** two steps: 6b.1 GitHub+GitLab wrappers/auth (host-scoped auth subtlety), 6b.2 Bitbucket+Azure DevOps.
+- **10b** two: 10b.1 lint+format (mechanical), 10b.2 test step with agent fallback + evidence artifacts.
+- **12c** three: 12c.1 GitLab MR create/update, 12c.2 Bitbucket PR create/update, 12c.3 fail-closed fork routing + slice-Done/PR bookkeeping.
+- **13a** two by provider: 13a.1 polling loop + GitHub status mapping, 13a.2 GitLab REST pipeline-jobs (URL-encoded path, `finished_at` mapping) + legacy fallback.
+- **16c** two: 16c.1 prompt engine as scripted-answer testable model + harness, 16c.2 answers-to-configuration mapping + command entry point.
+- **16d** two: 16d.1 update checks (disable/redirect in tests), 16d.2 telemetry + slice-Done/PR.
+- **17c** three journey domains matching slices 11/12/13: 17c.1 push safety, 17c.2 fork routing, 17c.3 CI monitoring.
+- **17e.2** three: 17e.2 gap assessment doc with per-gap resolve-or-document decision, 17e.3 implement or finalize known-issue entries per decision, 17e.4 slice-17 Done + final PR.
+
+Bookkeeping (slice Done + PR open) always stays on final sub-step of each slice. Nothing implemented, STOP.md not created.

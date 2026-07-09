@@ -134,3 +134,50 @@
 - Go's `gh pr create`/`glab mr create` URL comes from combined output; gh PR
   body streams via stdin `--body-file -` (fake asserts `WantStdin`).
 - Docker verification: 290 tests passed (235 baseline + 55 new).
+
+## Slice 6b.2
+
+- Azure DevOps wrapper: `NoMistakes.Scm.AzureDevOps.Host`, positional ctor
+  `(CommandRunner run, Func<bool>? cliAvailable, string org, string project,
+  string repo)` mirroring Go's five-arg `New` (org URL for `--organization`;
+  show/update/policy-list get org-only scoping, create gets full
+  org/project/repo — az rejects `--project`/`--repository` on id-addressed
+  commands). Reads **`.Stdout` only** (Go `outputJSON`): az prints
+  preview-notice chatter to stderr that must not reach the JSON decode; on
+  failure the trimmed stderr goes into the `ScmCommandException` message
+  ("az repos pr create: <stderr>: exit status N"). `FetchFailedCheckLogsAsync`
+  throws `NotSupportedException` (Go `ErrUnsupported`; Capabilities
+  FailedCheckLogs=false). Az `repos pr list` (Go `FindPR`) NOT ported —
+  deferred to 6c with the rest of PR lookup.
+- PR-body clamp ported as `NoMistakes.Scm.PRBody` (`Length`/`MaxChars`/`Clamp`,
+  Go prbody.go). In .NET `Length` is just `string.Length` (UTF-16 units are
+  native); `Clamp` guards against splitting a surrogate pair at the cut.
+  Azure create/update descriptions are clamped to 4000; other providers
+  unlimited (0).
+- Bitbucket has **no CLI**: transport is HTTP
+  (`NoMistakes.Scm.Bitbucket.Client`), basic auth email+token. The "auth
+  check" is `Client.FromEnv(IReadOnlyList<string>? env, HttpClient?)` —
+  KEY=VALUE entries preferred over ambient process env, throws
+  `InvalidOperationException` "missing NO_MISTAKES_BITBUCKET_EMAIL/…_API_TOKEN";
+  `Host.CheckAvailabilityAsync` only reports "bitbucket client is not
+  configured" when client is null (mirrors Go). Internal ctor
+  `(baseUrl, email, token, HttpClient)` + `InternalsVisibleTo` lets tests
+  inject a fake `HttpMessageHandler` (no httptest server needed).
+  `Client.ParseRepoRef` throws `ArgumentException` with Go's exact messages
+  (lookalike-host rejection kept).
+- `BitbucketPullRequest` (int Id) is the client-level DTO — prefixed name
+  because `Scm.PullRequest` owns the bare name. Client-level
+  `FindOpenPRBySourceBranchAsync` IS ported (query construction tested);
+  only the IHost-level FindPR surface waits for 6c.
+- Bitbucket pagination follows `next` links with the same-origin guard
+  (`ValidatePaginationUrl`, ScmCommandException "reject cross-origin…");
+  `GetStepLogAsync` streams and keeps only the last 32 KiB (`ReadTailAsync`).
+  `Host.FetchFailedCheckLogsAsync` swallows every `ScmCommandException` and
+  degrades to "" like Go.
+- `Bitbucket.Host.PipelineUuidFromStatusUrl` is a manual parse (fragment
+  consulted before path, query stripped by the `?` split) because .NET `Uri`
+  is laxer than Go's `url.Parse`; it explicitly rejects invalid
+  percent-escapes to mirror Go returning "" on parse failure.
+- Both Go raw-string passthroughs (bitbucket normalizePRState unknown states,
+  bucket "") map to enum `Unknown`/`None` per the 6b.1 convention.
+- Docker verification: 416 tests passed (290 baseline + 126 new).

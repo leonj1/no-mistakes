@@ -1,0 +1,11 @@
+Slice 8b done. Commit `120f015` pushed.
+
+Prior iteration left implementation uncommitted in tree; verified it against Go source (home/logs strings match `internal/cli/axi.go`/`axi_query.go`), ran uncached Docker build: 347 tests passed (319 baseline + 28 new), zero failures.
+
+What landed:
+- `AxiQuery.cs` — pure TOON builders for `axi` home, `axi status`, `axi logs` over slice-8a render layer; `AxiOutput(Doc, ExitCode)` ports emitDoc/emitError.
+- `AxiEnv.cs` — paths/db/repo resolution with git-worktree fallback (Go openAxiEnv read-only half; ensure-daemon half waits for 8c).
+- `CliApp.cs` — `axi` dispatch + shared flag parser, cobra-shaped errors, exit codes (2 usage, 1 environment). `axi logs` validates `--step` before touching environment, Go order.
+- Tests: `AxiQueryTests.cs` (pure builders, 24 tests) + `AxiQueryCliTests.cs` (CLI end-to-end with real git repo + NM_HOME, in daemon collection).
+
+STEPS.md marked `[x]`; NOTES.md gained slice-8b section (layer split, exit-code convention, `RepoInitHelp` message coupling, `ParseAxiFlags` reuse for 8c, NM_HOME/cwd mutation rule). Untracked `logs/iter-*` files left uncommitted. Next step: slice 8c.1.

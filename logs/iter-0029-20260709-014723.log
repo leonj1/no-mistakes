@@ -1,0 +1,8 @@
+Step 14 genuinely done. No changes made.
+
+Evidence:
+- `AxiQuery.cs` ports home (`axi.go`), status + logs (`axi_query.go`) as pure document builders on slice-8a TOON layer; `AxiRender.cs` renders; `CliApp.cs` routes bare `axi` (home), `axi status`, `axi logs`.
+- Tests: `AxiQueryTests.cs` (home fields, status, logs tail/full/missing paths), `AxiQueryCliTests.cs` (home other-branch isolation, status current branch, NM_HOME-isolated).
+- Acceptance check: `docker build -f Dockerfile.test.dotnet .` succeeded. `dotnet test` layer CACHED — safe, since `COPY dotnet/` layer also cached, meaning source identical to when tests passed.
+
+STEPS.md line 44 stays `[x]`. Nothing appended to FIXES.md.

@@ -31,3 +31,34 @@
   after the move (baseline on main plus relocated Redactor tests).
 - `Redactor.Redact` keeps the `redacted:@` → `redacted@` normalization hack to
   match the Go oracle (`url.User("redacted")` renders without the colon).
+
+## Slice 6a.2
+
+- Provider detection lives at `dotnet/src/NoMistakes.Scm/ProviderDetector.cs`:
+  `ProviderDetector.Detect(url)` returning enum `Provider` (`Provider.cs`:
+  Unknown/GitHub/GitLab/Bitbucket/AzureDevOps — enum, not Go's strings; add a
+  string mapping when the DB layer needs it).
+- Enterprise-host fallback (self-hosted GitLab via glab `config.yml` hosts +
+  `api_host`, GHE via gh `hosts.yml`) is ported, env-driven like Go:
+  `GLAB_CONFIG_DIR`/`GH_CONFIG_DIR`, then `XDG_CONFIG_HOME`, then
+  `~/.config/...`. Fails closed to `Provider.Unknown` on missing/malformed
+  config. YAML read via YamlDotNet 13.7.1 (same version as `NoMistakes.Config`
+  — pinned; keep versions aligned if bumping).
+- `RemoteHost.ExtractHost` (`RemoteHost.cs`) is ported but **internal** —
+  detection needs it. Slice 6a.3 promotes it to the public helper surface
+  (rename/move as it sees fit) and adds its dedicated tests; `InternalsVisibleTo
+  NoMistakes.Tests` already lets tests reach it meanwhile.
+- Azure DevOps parsing: `NoMistakes.Scm.AzureDevOps.RemoteUrl.TryParseRemote`
+  (out `AzureDevOpsRemote(OrgUrl, Project, Repo)` record struct) plus internal
+  `WebPRUrl` (Go's private `webPRURL`, ported now because it is pure URL logic
+  with tests; the az command wrapper in 6b.2/12 consumes it).
+- Detection tests mutate `GLAB_CONFIG_DIR`/`GH_CONFIG_DIR` process-globally with
+  save/restore (`WithConfigDirs` helper in `ProviderDetectorTests.cs`). Safe
+  because xunit runs tests within one class serially and no other test class
+  reads those vars — keep any future test touching them inside that class (or
+  give it a shared collection).
+- Go's `TestDetectProvider_SelfHostedGitLabViaGlabConfig` hosts
+  (`gitlab.example.com`) actually match the `"gitlab."` substring branch before
+  the config fallback; only the `api_host`/`git.example.com` cases exercise the
+  glab-config path. Ported faithfully anyway.
+- Docker verification: 197 tests passed (185 baseline + 12 new).

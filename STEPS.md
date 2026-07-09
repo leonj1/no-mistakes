@@ -5,7 +5,7 @@ Each slice: branch off `main` (pull latest first), tests before implementation, 
 - [x] **Slice 6a.1 — Scaffold `NoMistakes.Scm`; promote `Redactor` to shared `safeurl` surface.** Scaffold the `NoMistakes.Scm` project and promote the slice-4 local `Redactor` into the shared `safeurl` surface, updating the slice-4 call sites to use the shared location. Tests move with the code and keep passing.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the relocated `Redactor` tests passing from the shared `safeurl` surface and all pre-existing tests still green.
 
-- [ ] **Slice 6a.2 — Provider detection and URL parsing.** Port provider detection and URL parsing for GitHub, GitLab, Bitbucket, and Azure DevOps, covering HTTPS, SSH, enterprise hosts, and subgroups. Tests cover HTTPS/SSH/enterprise/subgroup/malformed URLs for all four providers.
+- [x] **Slice 6a.2 — Provider detection and URL parsing.** Port provider detection and URL parsing for GitHub, GitLab, Bitbucket, and Azure DevOps, covering HTTPS, SSH, enterprise hosts, and subgroups. Tests cover HTTPS/SSH/enterprise/subgroup/malformed URLs for all four providers.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the four-provider URL-parsing tests passing.
 
 - [ ] **Slice 6a.3 — URL helpers: `ExtractHost`, `RepoSlug`, `ProjectPath`.** Port `ExtractHost`, `RepoSlug` (GitHub), and `ProjectPath` (GitLab, subgroups allowed) on top of the slice-6a.2 parsing. Tests cover each helper across provider and subgroup variants.

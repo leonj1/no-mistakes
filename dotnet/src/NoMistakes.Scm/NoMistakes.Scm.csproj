@@ -2,4 +2,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="NoMistakes.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Provider detection reads the glab/gh CLI config files (YAML); same
+         YamlDotNet version as NoMistakes.Config. -->
+    <PackageReference Include="YamlDotNet" Version="13.7.1" />
+  </ItemGroup>
 </Project>

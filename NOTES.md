@@ -610,3 +610,45 @@
   Poll interval knobs (`DrivePollInterval`, `TriggerWaitTimeout`) are
   internal settable statics; tests currently run at defaults.
 - Docker verification: 370 tests passed (347 baseline + 23 new).
+
+## Slice 8c.2a
+
+- Daemon-side respond routing: `RunManager` gained a responder registry —
+  delegate `ApprovalResponder(step, action, findingIds, instructions,
+  addedFindings)`, `RegisterResponder(runId, responder)`, and
+  `HandleRespond(...)` throwing Go's exact "no active executor for run <id>"
+  when nothing is registered. This is Go's `m.executors` map reduced to a
+  seam: slice 9's executor must call `RegisterResponder` (its
+  RespondWithOverrides side) when a run starts and OWNS the "no step awaiting
+  approval" / step-mismatch validation — the manager only routes. Entries are
+  auto-removed in ExecuteRunAsync's finally, so registration inside the
+  pipeline runner is safe.
+- `RunIpcHandlers.Register` now registers `Methods.Respond`
+  (RespondParams → HandleRespond → `RespondResult { Ok = true }`). Rerun and
+  subscribe remain unregistered.
+- CLI: `AxiDrive.ValidateRespondAction` (exit-2 usage errors, runs BEFORE any
+  env open like Go and 8b's ValidateLogsStep — pinned by a no-NM_HOME test),
+  `AxiDrive.RespondAsync(env, progress, action, ciChecksPassed, ct)` (ports
+  runAxiRespond minus flags), `GateStatusFor`, and CliApp `axi respond`
+  dispatch with only `--action`.
+- **8c.2b/8c.2c hooks:** `--action fix` currently ALWAYS returns the exit-2
+  "--action fix requires --findings <id,...> or --add-finding <json>" error
+  (Go's empty-selection check; the flags don't exist yet) — 8c.2b replaces
+  that block with real findingIds/instructions/addFinding plumbing (Go builds
+  per-finding instructions from one --instructions note; parseAddFinding is
+  the payload parser). 8c.2c adds `--step` (replaces the AwaitingStep-only
+  lookup — note Go trims and validates step AFTER the no-gate check only when
+  step is empty) and threads `autoYes` into the DriveRunAsync call
+  (currently hardcoded `autoApprove: false`).
+- Fix verb's gate-resolution semantics are tested over the IPC wire via
+  `AxiDrive.SendRespondAsync` (finding IDs reach the parked step) since the
+  CLI flags are absent; approve/skip are tested end-to-end through CliApp
+  with a park-until-respond runner (`ParkedGateManager` in
+  `AxiRespondTests.cs` — reusable for 8c.2b/c; it maps skip → step skipped,
+  else completed, then completes the run).
+- Docker verification: 379 tests passed (370 baseline + 9 new). NOTE: the
+  build initially failed with containerd I/O errors — the HOST disk was 100%
+  full (Docker.raw could not grow). Freed regenerable caches
+  (~/Library/Caches/{go-build,Homebrew,*.ShipIt}), restarted Docker Desktop,
+  then the build ran clean. If Docker errors look like corruption, check
+  `df -h` first.

@@ -54,9 +54,8 @@ public sealed class CliApp
 
     /// <summary>
     /// The agent-facing `axi` command tree: home (bare `axi`), `axi status`,
-    /// `axi logs`, `axi run`, and `axi abort`. TOON on stdout, structured
-    /// errors, explicit exit codes. Ports Go's newAxiCmd dispatch; respond
-    /// arrives in slice 8c.2.
+    /// `axi logs`, `axi run`, `axi respond`, and `axi abort`. TOON on stdout,
+    /// structured errors, explicit exit codes. Ports Go's newAxiCmd dispatch.
     /// </summary>
     private int RunAxi(IReadOnlyList<string> args)
     {
@@ -72,6 +71,8 @@ public sealed class CliApp
                 return RunAxiLogs(args.Skip(1).ToList());
             case "run":
                 return RunAxiRun(args.Skip(1).ToList());
+            case "respond":
+                return RunAxiRespond(args.Skip(1).ToList());
             case "abort":
                 return RunAxiAbort(args.Skip(1).ToList());
             default:
@@ -233,6 +234,48 @@ public sealed class CliApp
         using (env)
         {
             return Emit(AxiDrive.RunAsync(env, stderr, autoYes, skipSteps, intent).GetAwaiter().GetResult());
+        }
+    }
+
+    /// <summary>
+    /// The `axi respond` command: answer the current approval gate with
+    /// approve/fix/skip and continue driving the run. Ports Go's
+    /// newAxiRespondCmd; the finding flags arrive in slice 8c.2b and
+    /// --step/--yes in 8c.2c.
+    /// </summary>
+    private int RunAxiRespond(IReadOnlyList<string> args)
+    {
+        var action = "";
+        try
+        {
+            ParseAxiFlags(args, new Dictionary<string, Action<string>>
+            {
+                ["--action"] = v => action = v,
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return Emit(AxiOutput.Error(2, ex.Message));
+        }
+
+        // Action validation precedes any environment work (Go order).
+        if (AxiDrive.ValidateRespondAction(action) is { } invalid)
+        {
+            return Emit(invalid);
+        }
+
+        AxiEnv env;
+        try
+        {
+            env = AxiEnv.OpenAsync(ensureDaemonConn: true).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            return Emit(AxiOutput.Error(1, ex.Message, AxiQuery.RepoInitHelp(ex.Message)));
+        }
+        using (env)
+        {
+            return Emit(AxiDrive.RespondAsync(env, stderr, action).GetAwaiter().GetResult());
         }
     }
 

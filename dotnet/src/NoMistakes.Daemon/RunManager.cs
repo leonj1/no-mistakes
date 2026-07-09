@@ -14,6 +14,19 @@ namespace NoMistakes.Daemon;
 public delegate Task PipelineRunner(Run run, Repo repo, CancellationToken cancellationToken);
 
 /// <summary>
+/// Receives a user approval action for a run's step awaiting approval. The
+/// seam the slice-9 executor's RespondWithOverrides plugs into (Go's
+/// m.executors map holds the executor itself); it owns the "no step awaiting
+/// approval" / step-mismatch validation and throws on rejection.
+/// </summary>
+public delegate void ApprovalResponder(
+    string step,
+    string action,
+    List<string>? findingIds,
+    Dictionary<string, string>? instructions,
+    List<Finding>? addedFindings);
+
+/// <summary>
 /// Tracks active pipeline runs and manages run lifecycle: creation with
 /// per-repo+branch serialization, supersede-on-new-push cancellation,
 /// user-requested cancellation, and shutdown. Ported from Go
@@ -28,6 +41,7 @@ public sealed class RunManager
     private readonly object gate = new();
     private readonly Dictionary<string, ActiveRun> active = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> branchLocks = new();
+    private readonly Dictionary<string, ApprovalResponder> responders = new();
     private volatile bool shuttingDown;
 
     /// <summary>
@@ -158,6 +172,46 @@ public sealed class RunManager
         sha == "0000000000000000000000000000000000000000";
 
     /// <summary>
+    /// Registers the approval responder for an active run so HandleRespond can
+    /// route user actions to it. The slice-9 executor registers itself here
+    /// (Go stores the executor in m.executors at startRun); until then the
+    /// pipeline runner registers whatever consumes its gates. Deregistered
+    /// automatically when the run's background task finishes.
+    /// </summary>
+    public void RegisterResponder(string runId, ApprovalResponder responder)
+    {
+        lock (gate)
+        {
+            responders[runId] = responder;
+        }
+    }
+
+    /// <summary>
+    /// Routes a user approval action to the run's registered responder.
+    /// Mirrors Go RunManager.HandleRespondWithOverrides, including its
+    /// "no active executor" error for unknown/finished runs.
+    /// </summary>
+    public void HandleRespond(
+        string runId,
+        string step,
+        string action,
+        List<string>? findingIds,
+        Dictionary<string, string>? instructions,
+        List<Finding>? addedFindings)
+    {
+        ApprovalResponder? responder;
+        lock (gate)
+        {
+            responders.TryGetValue(runId, out responder);
+        }
+        if (responder == null)
+        {
+            throw new InvalidOperationException($"no active executor for run {runId}");
+        }
+        responder(step, action, findingIds, instructions, addedFindings);
+    }
+
+    /// <summary>
     /// Stops an active run and propagates cancellation to its pipeline.
     /// Throws when the run is not live in this manager (unknown, finished, or
     /// a different daemon's run), matching Go's "no active run" error; the
@@ -285,6 +339,7 @@ public sealed class RunManager
             lock (gate)
             {
                 active.Remove(run.Id);
+                responders.Remove(run.Id);
             }
             entry.Done.TrySetResult();
         }

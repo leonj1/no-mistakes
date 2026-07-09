@@ -6,10 +6,12 @@ namespace NoMistakes.Cli;
 
 /// <summary>
 /// The mutating axi drive surface: `axi run` (trigger a pipeline run for the
-/// current branch and drive it to a decision point or outcome) and the
-/// worktree/branch-scoped `axi abort`. Ports Go's internal/cli/axi_drive.go
-/// (runAxiRun, driveRun, renderDriveResult, runAxiAbort); the respond command
-/// arrives in slice 8c.2.
+/// current branch and drive it to a decision point or outcome), `axi respond`
+/// (answer the current approval gate and continue), and the worktree/branch-
+/// scoped `axi abort`. Ports Go's internal/cli/axi_drive.go (runAxiRun,
+/// driveRun, renderDriveResult, runAxiRespond, runAxiAbort); respond's
+/// finding flags (--findings/--add-finding/--instructions) arrive in slice
+/// 8c.2b, --step targeting and --yes in 8c.2c.
 /// </summary>
 public static class AxiDrive
 {
@@ -552,6 +554,157 @@ public static class AxiDrive
             help.Add("The pipeline fixed findings the original change missed (see `fixes`) - acknowledge the misses and list each fix so the user can review them.");
         }
         return help;
+    }
+
+    /// <summary>
+    /// Validates the `axi respond` --action value, returning the structured
+    /// usage error (exit 2) for a missing or unknown action, or null when the
+    /// trimmed action is one of approve/fix/skip. Runs before any environment
+    /// is opened (Go validates the action first in runAxiRespond).
+    /// </summary>
+    public static AxiOutput? ValidateRespondAction(string action)
+    {
+        switch (action.Trim())
+        {
+            case ApprovalAction.Approve:
+            case ApprovalAction.Fix:
+            case ApprovalAction.Skip:
+                return null;
+            case "":
+                return AxiOutput.Error(2, "--action is required",
+                    "Run `no-mistakes axi respond --action approve|fix|skip`");
+            default:
+                return AxiOutput.Error(2, $"unknown action \"{action}\"",
+                    "Valid actions: approve, fix, skip");
+        }
+    }
+
+    /// <summary>
+    /// The `axi respond` operation over an already-opened daemon-connected
+    /// env: sends the approve/fix/skip action for the step currently awaiting
+    /// approval, then blocks until the next gate, CI-ready decision point, or
+    /// final outcome. Ports Go's runAxiRespond without the finding flags
+    /// (8c.2b) and --step/--yes (8c.2c); callers validate the action with
+    /// <see cref="ValidateRespondAction"/> first.
+    /// </summary>
+    public static async Task<AxiOutput> RespondAsync(
+        AxiEnv env,
+        TextWriter? progress,
+        string action,
+        Func<string, bool>? ciChecksPassed = null,
+        CancellationToken ct = default)
+    {
+        var client = env.Client ?? throw new InvalidOperationException("axi respond requires a daemon connection");
+        var act = action.Trim();
+
+        string branch;
+        try
+        {
+            branch = (await new GitClient().CurrentBranchAsync(".", ct).ConfigureAwait(false)).Trim();
+        }
+        catch (GitCommandException ex)
+        {
+            return AxiOutput.Error(1, $"get current branch: {ex.Message}");
+        }
+
+        GetActiveRunResult active;
+        try
+        {
+            active = await client.CallAsync<GetActiveRunResult>(
+                Methods.GetActiveRun, new GetActiveRunParams { RepoId = env.Repo.Id, Branch = branch }, ct)
+                .ConfigureAwait(false) ?? new GetActiveRunResult();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AxiOutput.Error(1, $"get active run: {ex.Message}");
+        }
+        if (active.Run == null)
+        {
+            return AxiOutput.Error(1, "no active run to respond to",
+                "Run `no-mistakes axi run` to start one");
+        }
+        var runId = active.Run.Id;
+
+        RunInfo? run;
+        try
+        {
+            run = await GetRunInfoAsync(client, runId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AxiOutput.Error(1, $"load run: {ex.Message}");
+        }
+        if (run == null)
+        {
+            return AxiOutput.Error(1, $"load run: run {runId} not found");
+        }
+        var rv = RunView.FromIpc(run);
+
+        if (rv.AwaitingStep() is not { } gate)
+        {
+            return AxiOutput.Error(1, "no step is awaiting approval",
+                "Run `no-mistakes axi status` to see the run state");
+        }
+        var stepName = gate.Name;
+
+        // The fix verb's finding selection flags land in slice 8c.2b; until
+        // then this always trips, matching Go's empty-selection usage error.
+        if (act == ApprovalAction.Fix)
+        {
+            return AxiOutput.Error(2, "--action fix requires --findings <id,...> or --add-finding <json>",
+                "Run `no-mistakes axi status` to list finding IDs");
+        }
+
+        try
+        {
+            await SendRespondAsync(client, runId, stepName, act, null, null, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AxiOutput.Error(1, $"respond to {stepName}: {ex.Message}");
+        }
+
+        // Let the executor consume the response before we re-read state, so
+        // we don't immediately observe the same gate we just answered.
+        try
+        {
+            await WaitStepLeavesGateAsync(client, runId, stepName, GateStatusFor(rv, stepName), ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AxiOutput.Error(1, $"wait for {stepName}: {ex.Message}");
+        }
+
+        RunInfo final;
+        bool ciReady;
+        try
+        {
+            (final, ciReady) = await DriveRunAsync(client, progress, runId, autoApprove: false, ciChecksPassed, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AxiOutput.Error(1, $"drive run: {ex.Message}");
+        }
+        return RenderDriveResult(final, ciReady);
+    }
+
+    /// <summary>
+    /// The current status of a step in the run view, defaulting to the
+    /// awaiting-approval status so the post-respond wait still functions if
+    /// the step was not found. Ports Go's gateStatusFor.
+    /// </summary>
+    internal static string GateStatusFor(RunView rv, string step)
+    {
+        foreach (var s in rv.Steps)
+        {
+            if (s.Name == step)
+            {
+                return s.Status;
+            }
+        }
+        return StepStatus.AwaitingApproval;
     }
 
     /// <summary>

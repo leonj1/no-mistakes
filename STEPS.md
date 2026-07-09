@@ -47,7 +47,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the axi home
 - [x] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `axi run` and `axi abort` tests passing.
 
-- [ ] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.
+- [x] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the approve/fix/skip verb tests passing.
 
 - [ ] **Slice 8c.2b — `axi respond` finding flags.** Port the `--findings` and `--add-finding` flags on `axi respond`, including finding-payload parsing and validation errors for malformed payloads. Tests cover each flag's payload path and the malformed-payload errors.

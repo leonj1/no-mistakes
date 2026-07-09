@@ -1,0 +1,28 @@
+# Test image for the .NET port: restores, builds, and runs the test suite.
+# Used for local verification when no dotnet SDK is installed on the host:
+#   docker build -f Dockerfile.test.dotnet -t no-mistakes-dotnet-test .
+# A non-zero exit means a build or test failed.
+#
+# git is installed because the slice-4 git-wrapper tests spawn real git
+# against real temporary repositories. A global user identity is configured so
+# `git commit` works in any test that forgets to set a per-repo identity, and
+# init.defaultBranch is pinned so branch names are deterministic across git
+# versions.
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git config --global user.name "no-mistakes-ci" \
+ && git config --global user.email "ci@no-mistakes.test" \
+ && git config --global init.defaultBranch main
+
+WORKDIR /workspace/dotnet
+
+COPY dotnet/ ./
+
+RUN dotnet restore no-mistakes.sln
+RUN dotnet build no-mistakes.sln --no-restore
+RUN dotnet test no-mistakes.sln --no-restore

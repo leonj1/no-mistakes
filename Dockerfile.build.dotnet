@@ -1,0 +1,17 @@
+# Build image for the .NET port: restores and compiles the solution.
+# Used for local verification when no dotnet SDK is installed on the host:
+#   docker build -f Dockerfile.build.dotnet -t no-mistakes-dotnet-build .
+# A non-zero exit means restore or build failed.
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/dotnet
+
+COPY dotnet/ ./
+
+RUN dotnet restore no-mistakes.sln
+RUN dotnet build no-mistakes.sln --no-restore

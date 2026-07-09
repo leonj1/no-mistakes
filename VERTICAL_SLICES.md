@@ -20,7 +20,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 1. Bootstrap CLI and build artifact | Done | `cmd/no-mistakes`, `internal/buildinfo`, `internal/cli` root | `NoMistakes.Cli`, `NoMistakes.Core`, `Dockerfile.dotnet` |
 | 2. Paths, environment, and config loading | Done | `internal/paths`, `internal/config` | `NoMistakes.Core`, `NoMistakes.Config` |
 | 3. SQLite run database | Done | `internal/db`, migrations | `NoMistakes.Data` |
-| 4. Git command wrapper and repository model | Planned | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
+| 4. Git command wrapper and repository model | Done | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
 | 5. Shell process lifecycle | Planned | `internal/shellenv` | `NoMistakes.Processes` |
 | 6. SCM URL parsing and host backends | Planned | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
 | 7. Daemon IPC and run lifecycle | Planned | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
@@ -124,14 +124,53 @@ Acceptance checks:
 
 ### 4. Git Command Wrapper and Repository Model
 
+Status: Done.
+
 Port repository discovery, command execution, remote parsing, worktree helpers, SHA/ref helpers, and bare gate repo handling.
+
+Ported behavior (`NoMistakes.Git`):
+
+- `GitClient` runs `git` as a subprocess and returns trimmed stdout, throwing
+  `GitCommandException` with the redacted command and stderr on non-zero exit.
+  It mirrors Go's `git.Run`: when the working dir is itself a bare repo it names
+  it explicitly via `--git-dir` (`IsBareGitDir` = HEAD file + objects dir, no
+  `.git` entry) so gate operations work under `safe.bareRepository=explicit`,
+  while working trees and linked worktrees keep normal discovery.
+- `NonInteractiveEnv` forces `GIT_EDITOR`/`GIT_SEQUENCE_EDITOR=true` and
+  `GIT_TERMINAL_PROMPT=0` and injects an absolute `PWD` on non-Windows so a
+  symlinked working directory (e.g. `/tmp` vs `/private/tmp`) is preserved.
+- Repository helpers: `InitBare`, remotes (`Add`/`Ensure`/`Remove`/`GetUrl`/
+  `GetConfiguredUrl`), `FindGitRoot`/`FindMainRepoRoot` (symlink-resolved),
+  `Diff`/`DiffNameOnly`/`DiffHead`/`Log`, `CommitTime` (UTC)/`CommitAuthorEmail`,
+  `HeadSha`/`CurrentBranch`/`IsDetachedHead`, `DefaultBranch` (ls-remote symref,
+  falls back to `main`), `Fetch*`, `Push`/`PushWithOptions` (force-with-lease
+  anchored to an expected SHA), `LsRemote`, `HasUncommittedChanges`,
+  `CreateBranch`, `CommitAll`, `CopyLocalUserIdentity` (per-worktree scope with
+  `--local` fallback), `WorktreeAdd`/`WorktreeRemove`, `ResolveRef`/`RefExists`/
+  `ShowFile`, plus `EmptyTreeSha`/`IsZeroSha`.
+- `PostReceiveHook` ports the notify-push hook: script generation (verbatim
+  shell, credential path single-quoted), atomic executable install,
+  managed-vs-custom refresh, and `IsolateHooksPath` (enables
+  `extensions.worktreeConfig`, pins `core.hookspath` per-worktree, relocates
+  `core.bare` to per-worktree scope), all best-effort/idempotent.
+- `Redactor.RedactText` (minimal local copy of Go's `safeurl`; slice 6 promotes
+  the full surface) hides URL userinfo before it reaches logs or error text.
 
 Acceptance checks:
 
-- Tests create real git repos.
-- Bare repo commands work under `safe.bareRepository=explicit`.
+- Tests create real git repos in temp dirs (`GitTestSupport`), never mocking.
+- Bare repo config read/write and worktree add/remove work under
+  `safe.bareRepository=explicit` (env-injected git config), matching the Go
+  issue #362 regression tests.
 - Worktree add/remove behavior matches Go.
-- All gate-repo git calls go through the .NET git wrapper.
+- All gate-repo git calls go through `GitClient`, which applies the `--git-dir`
+  bare-repo rule centrally.
+- `docker build -f Dockerfile.test.dotnet .` restores, builds, and runs the
+  suite (185 tests) — used because the host has no dotnet SDK.
+
+Deferred to later slices: SCM URL parsing and provider host backends (the full
+`safeurl`/`scm` surface) land with slice 6; the daemon `notify-push` command the
+hook invokes lands with slice 7.
 
 ### 5. Shell Process Lifecycle
 

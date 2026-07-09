@@ -1,0 +1,9 @@
+Slice 6b.1 done. Committed `ed96d2e`; `docker build -f Dockerfile.test.dotnet .` green — 290 tests passed (235 baseline + 55 new), zero warnings. STEPS.md marked `[x]`, NOTES.md updated for 6b.2/6c.
+
+What landed:
+
+- **Wrappers**: `NoMistakes.Scm.GitHub.Host` and `NoMistakes.Scm.GitLab.Host` (per-provider namespace, same type name — the existing `RemoteUrl` convention). Positional ctor `(run, cliAvailable, host, repo|projectPath)` mirrors Go's `New`; empty strings reproduce legacy unscoped behavior. Ported: availability/auth, CreatePR, UpdatePR, GetPRState, GetChecks (+ glab `--mr` unsupported-flag fallback), GetMergeableState, FetchFailedCheckLogs.
+- **Auth checks**: both hosts scope `auth status` with `--hostname <host>`, falling back to the unscoped check when host unknown. Tests prove the scoped form is invoked by making the unscoped fixture fail.
+- **Go gotchas preserved**: no `--state` on `glab mr list`; job reads via `glab api --paginate projects/<enc>/pipelines/<id>/jobs` when a project path is known (detached-HEAD-safe), `glab ci get` otherwise; concatenated per-page JSON arrays decoded document-by-document with corrupt-page errors surfaced even when earlier jobs parsed; `finished_at`/`completedAt` into `Check.CompletedAt`.
+- **Shared surface**: `CommandRunner` delegate + `CommandResult` (Go `CmdFactory`; real process-spawning implementation deferred until slice-5 `NoMistakes.Processes` merges), `PullRequest`/`Check`/state enums, `IHost` (no `FindPR` — that's 6c), `PullRequestUrl.TryExtractNumber`, and the 6a.3-deferred `GitHub.RemoteUrl.HostPrefixedSlug`.
+- **Tests**: fixture-keyed fake runner (`ScmCommandFakes.cs`) fails on any unexpected command line, so argument construction itself is what tests assert — including the `--repo` flag, stdin-streamed PR bodies, and both auth forms. FindPR/fork tests intentionally left for 6c.

@@ -45,6 +45,7 @@ public sealed class Findings
 {
     public List<Finding> Items { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
+    public string RiskLevel { get; set; } = string.Empty;
 }
 
 /// <summary>Parses findings JSON, tolerating the legacy shapes Go accepts.</summary>
@@ -75,7 +76,11 @@ public static class FindingsParser
             items = wire.Legacy;
         }
 
-        var result = new Findings { Summary = wire.Summary ?? string.Empty };
+        var result = new Findings
+        {
+            Summary = wire.Summary ?? string.Empty,
+            RiskLevel = wire.RiskLevel ?? string.Empty,
+        };
         if (items != null)
         {
             foreach (var w in items)
@@ -116,6 +121,9 @@ public static class FindingsParser
 
         [JsonPropertyName("summary")]
         public string? Summary { get; set; }
+
+        [JsonPropertyName("risk_level")]
+        public string? RiskLevel { get; set; }
     }
 
     private sealed class FindingWire

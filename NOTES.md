@@ -480,3 +480,53 @@
   mutation inside this collection).
 - Docker verification: 279 tests passed (261 baseline + 18 new). Slice 7
   marked Done in VERTICAL_SLICES.md (table + details Status line).
+
+## Slice 8a
+
+- TOON encoder is a hand port, NOT a NuGet dep (none exists that matches
+  toon-go's exact output): `dotnet/src/NoMistakes.Cli/Toon.cs` — `ToonField`,
+  `ToonObject` (ordered), static `Toon.MarshalString`, `ToonEncodingException`.
+  Ports toon-go's encoder with the Core Profile defaults (2-space indent,
+  comma delimiter, no length markers) and the full quoting ruleset
+  (empty/whitespace, true/false/null, numeric-looking, leading `-`, any of
+  `:\"[]{}`, \n\r\t, comma; control chars < 0x20 throw). Supported value
+  subset: null, bool, string, integers (2^53 safe-int guard), nested
+  ToonObject, all-primitive sequences (inline `key[N]: a,b`), and uniform
+  primitive-field object rows (tabular `key[N]{cols}:`). Mixed/nested list
+  shapes the axi layer never emits THROW — port toon-go's list-item encoding
+  when a later slice needs it. Note: URLs contain `:` so `pr:` values render
+  quoted — same as Go, don't "fix" it.
+- Render layer: `dotnet/src/NoMistakes.Cli/AxiRender.cs` — `RunView`/`StepView`
+  (FromIpc/FromDb, AwaitingStep, FindingsTally, FixRows, FindingCount) and
+  static `AxiRender` (RunObjectField/WithKey, GateFields, Doc, Truncate,
+  ShortSha, FormatParkedFor, TerminalStatus, MaxFindingDesc=600). Field order
+  matches Go exactly: id, branch, status, [awaiting_agent], head, [pr],
+  findings, steps table; gate: step, status, [summary], [risk], [note],
+  findings table, then top-level help array. Gate help strings and the
+  review-gate auto-fix note are byte-for-byte Go copies — keep in sync with
+  the Go source when 8e syncs guidance surfaces.
+- `AxiRender.NowUnix` is an internal settable static Func<long> (Go's nowUnix
+  package var). Tests pinning it stay inside `AxiRenderTests` (xunit
+  serializes within a class) and restore in finally.
+- NO `significance` column: the Go findings table has no such field (the
+  step's "if merged" condition is false). findingRow stays
+  id,severity,file,action,description.
+- Go's render layer ignores findings-JSON parse errors; .NET
+  `FindingsParser.Parse` throws on malformed JSON, so the render layer wraps
+  it in `AxiRender.ParseFindingsOrEmpty` (catch → empty Findings). Reuse that
+  helper, don't call Parse directly from render code.
+- `NoMistakes.Core.Findings` gained `RiskLevel` (wire key `risk_level`) for
+  the gate `risk:` field. Go's other Findings fields (Tested, TestingSummary,
+  Artifacts, RiskRationale) still unported.
+- `NoMistakes.Cli.csproj` now references `NoMistakes.Data` (explicit, for
+  `RunView.FromDb`).
+- emitDoc/emitError (cobra plumbing) NOT ported — `AxiRender.Doc` returns the
+  document string; 8b's command layer owns writing to stdout and the
+  exit-code error shape.
+- Truncate counts Unicode code points (rune parity with Go), not UTF-16 units.
+- Tests: `ToonTests.cs` (encoder shape + quoting matrix), `AxiRenderTests.cs`
+  (ports of TestWriteRunObjectShape — exact-document field-order assert —
+  TestRunObjectRendersAwaitingAgent, TestFormatParkedFor, TestWriteGateShape,
+  TestGateNote_ReviewOnly, TestFindingsTally, TestTruncateDisclosesTotal,
+  plus risk render, pr placement, FixRows, malformed-JSON degradation).
+- Docker verification: 319 tests passed (279 baseline + 40 new).

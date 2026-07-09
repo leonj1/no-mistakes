@@ -38,7 +38,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the abort-by
 - [x] **Slice 7e.2 — `notify-push` wiring.** Wire in the slice-4 `notify-push` hook command invoked by the post-receive hook, routed over the slice-7a IPC surface to the daemon. Tests cover the hook invocation reaching the daemon. Mark slice 7 Done in `VERTICAL_SLICES.md` and open the PR.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the notify-push hook-invocation tests passing, slice 7 is marked Done in `VERTICAL_SLICES.md`, and a PR is open against `main`.
 
-- [ ] **Slice 8a — TOON rendering.** Port TOON rendering with stable field order in `NoMistakes.Cli`: the run object, the gate object, and the findings table (including the `significance` column if merged). Tests assert output shape and field order.
+- [x] **Slice 8a — TOON rendering.** Port TOON rendering with stable field order in `NoMistakes.Cli`: the run object, the gate object, and the findings table (including the `significance` column if merged). Tests assert output shape and field order.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the TOON output-shape/field-order tests passing.
 
 - [ ] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.

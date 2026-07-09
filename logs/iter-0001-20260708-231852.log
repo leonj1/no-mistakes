@@ -1,0 +1,10 @@
+Slice 6a.1 done. Commit `b4cfdda` pushed on new branch `claude/vertical-slice-six-scm` (cut from `origin/main`; no PR yet — slice 6 sub-steps share one branch, PR opens at 6c).
+
+What changed:
+- New project `dotnet/src/NoMistakes.Scm` wired into sln (GUID `{4F8D2B6A-...}`, nested under `src`) and test csproj.
+- `Redactor` moved to `NoMistakes.Scm/SafeUrl/Redactor.cs`, namespace `NoMistakes.Scm.SafeUrl` — mirrors Go `internal/safeurl`. Local copy in `NoMistakes.Git` deleted; `GitClient.cs` now consumes shared surface via `NoMistakes.Git.csproj` ProjectReference.
+- Tests moved to `SafeUrlRedactorTests.cs`; stripped from `GitHookAndEnvTests.cs`.
+
+Acceptance verified: `docker build -f Dockerfile.test.dotnet .` green — `Passed! - Failed: 0, Passed: 185`, relocated Redactor tests included.
+
+Bookkeeping: STEPS.md 6a.1 marked `[x]`; NOTES.md created with conventions for later steps (Scm project layout, sln-edit recipe incl. UTF-8 BOM gotcha, and warning: slice-5 PR #7 still open, so this branch lacks `NoMistakes.Processes` — expect trivial sln/test-csproj conflict if it merges mid-slice).

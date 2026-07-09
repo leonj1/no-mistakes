@@ -1,0 +1,16 @@
+STEPS.md rewritten. Oversized slices split, order preserved:
+
+- Slice 6: 3 sub-steps (URL parsing; command wrappers + auth; PR/MR lookup + fork routing)
+- Slice 7: 5 (IPC protocol; daemon lifecycle; run manager; stale recovery; abort-by-id + notify-push)
+- Slice 8: 5 (TOON render; read-only commands; gate responses; awaiting-agent signal; docs sync)
+- Slice 9: 3 (contract + state machine; executor + cancellation; auto-fix + persistence)
+- Slice 10: 3 (trust boundary alone first; test/lint/format; review step)
+- Slice 11: 4 (rebase refs; bundled-default detection; lease guard; push sites through guard)
+- Slice 12: unchanged, single pass
+- Slice 13: 3 (polling; idle timeout + keywords; auto-fix + monitor lifecycle)
+- Slice 14: 5 (interface + harness; Claude; Codex + Pi; Copilot + Droid; ACP)
+- Slice 15: 3 (library choice + skeleton; run/step/gate render; findings/logs + fallback)
+- Slice 16: 4 (init; skill + drift; wizard; update + telemetry)
+- Slice 17: 5 (e2e core; cleanup + trust e2e; push/fork/CI e2e; release packaging; CI wiring + Windows parity)
+
+Every step keeps `- [ ]` with `Done when:` naming concrete check (`docker build -f Dockerfile.test.dotnet .`, artifact existence, or CI/doc state). PR + mark-Done land on each slice's final sub-step; header notes sub-steps share one branch/PR. Nothing implemented, no STOP.md.

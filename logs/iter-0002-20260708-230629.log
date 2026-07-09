@@ -1,0 +1,6 @@
+OVERSIZED.md written. Verdict: 11 of 12 slices too big for one pass.
+
+- **Oversized:** slices 6–11, 13–17. Common pattern: each bundles project scaffolding + multiple mechanisms + security/data-loss invariants + regression suites. Worst offenders: slice 9 (whole pipeline engine), slice 11 (three separate data-loss-critical mechanisms with historical bugs #281/#283/#305 — each needs own focused pass), slice 16 (five unrelated features: init, skill gen, wizard, update, telemetry), slice 17 (full e2e harness + release packaging + CI wiring in one).
+- **Fine as-is:** slice 12 (PR/MR creation) — one step surface, bounded fork-routing rules, small test matrix.
+
+Each entry in OVERSIZED.md quotes slice title and says why plus natural split points. STEPS.md, PLAN.md untouched. Nothing implemented.

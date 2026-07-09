@@ -1,0 +1,14 @@
+OVERSIZED.md written. 10 of 34 steps flagged:
+
+- **6a** — scaffold + Redactor refactor + four-provider URL-parse matrix
+- **8c** — three axi commands + full gate-response semantics + four flags
+- **9b** — whole executor: orchestration, gates, cancellation propagation
+- **9c** — auto-fix loop + logging + persistence, three subsystems
+- **12** — only unsplit multi-provider slice: create + update + lookup + fork routing
+- **13c** — autoFixCI + conflict rebase + monitor cancellation + background checks-passed lifecycle
+- **16a** — init touches gate repo, remotes, hooks, skill install, fork preservation
+- **17a** — e2e harness foundation plus three journey families
+- **17d** — Dockerfiles + release metadata + three-OS publishing + archives + install scripts
+- **17e** — CI wiring plus open-ended Windows process-parity work, unrelated concerns
+
+Rest sized fine for one pass. STEPS.md and PLAN.md untouched.

@@ -1,0 +1,11 @@
+STEPS.md rewritten. 84 steps, each with `Done when:`. Splits per OVERSIZED.md, order preserved, small steps untouched:
+
+- **7e** — 7e.1 abort-by-id; 7e.2 notify-push wiring + slice bookkeeping/PR.
+- **8c.2** — 8c.2a verb dispatch (approve/fix/skip); 8c.2b `--findings`/`--add-finding` payload parsing; 8c.2c `--step` targeting + `--yes` default.
+- **10b.2** — 10b.2a configured `commands.test`; 10b.2b agent fallback (behind test seam until slice 14); 10b.2c evidence artifacts.
+- **10c** — 10c.1 findings schema + prompt; 10c.2 risk assessment; 10c.3 auto-fix default + parking behavior + bookkeeping/PR.
+- **14a** — 14a.1 scaffold + interface/run options; 14a.2 `ResolveAgent` PATH resolution; 14a.3 fake-agent harness.
+- **17d.3** — 17d.3a publish targets + archives; 17d.3b install scripts.
+- **17e.3** — 17e.3a known-issue docs for document-marked gaps; 17e.3b planning step that inserts one new STEPS.md step per resolve-marked gap after 17e.2 lands (scope unbounded now, so implementation steps get generated then, each with own `Done when:`).
+
+Nothing implemented. No STOP.md.

@@ -1,0 +1,10 @@
+OVERSIZED.md written. Six steps flagged, ~55 pass single-pass test:
+
+- **6b.1** — two provider wrappers (gh + glab) with zero prior pattern; GitLab host-scoped auth nuance alone is a chunk.
+- **6c** — GitHub head-owner-filter lookup + GitLab fail-closed + Bitbucket fail-closed + bookkeeping + PR. Three providers, three behaviors.
+- **13c.3** — cancellation plus step-returns-while-monitor-keeps-running background architecture. Two hard concurrency problems in one step.
+- **16c.1** — prompt engine + harness + full wizard sequence with defaults/validation/back-out.
+- **17a.1** — whole e2e framework (setup options, in-Docker journey infra, smoke journey) in one step.
+- **17c.3** — four distinct CI-monitoring e2e journeys, each with own simulation scaffolding; siblings bundle only 2–3 related ones.
+
+STEPS.md, PLAN.md untouched. No STOP.md.

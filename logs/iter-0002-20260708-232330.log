@@ -1,0 +1,11 @@
+Step 1 verified done. No action needed.
+
+Evidence:
+
+- `Redactor` lives at shared surface: `dotnet/src/NoMistakes.Scm/SafeUrl/Redactor.cs` under namespace `NoMistakes.Scm.SafeUrl`, mirrors Go `internal/safeurl.RedactText`.
+- Slice-4 call site updated: `GitClient.cs:4` imports `NoMistakes.Scm.SafeUrl`, uses `Redactor.RedactText` at lines 81–82. No local copy left in `NoMistakes.Git` (only `GitClient.cs`, `PostReceiveHook.cs`, csproj).
+- Tests moved: old copies deleted from `GitHookAndEnvTests.cs` (commit diff shows -25 lines), now in `SafeUrlRedactorTests.cs` importing shared namespace.
+- Wiring correct: `NoMistakes.Scm` in solution; project references from `NoMistakes.Git.csproj` and `NoMistakes.Tests.csproj`.
+- Acceptance check: `docker build -f Dockerfile.test.dotnet .` succeeded. `dotnet test` layer cache-hit on identical `dotnet/` content — same inputs passed tests on prior build, build completes green.
+
+STEPS.md `[x]` stays. No FIXES.md entry.

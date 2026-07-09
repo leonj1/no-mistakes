@@ -1,0 +1,33 @@
+# Porting notes for later steps
+
+## Slice 6a.1 (branch `claude/vertical-slice-six-scm`)
+
+- Slice 6 branch is cut from `origin/main` (slice-4 merge `9226807`), NOT from
+  the slice-5 branch. Slice 5 (`claude/vertical-slice-five-shell`, PR #7) is
+  still open, so this branch has no `NoMistakes.Processes` project and the test
+  csproj has no Processes reference. If PR #7 merges while slice 6 is in
+  flight, expect a trivial sln/test-csproj merge conflict (both add project
+  entries/references at the same anchors).
+- Shared safeurl surface lives at `dotnet/src/NoMistakes.Scm/SafeUrl/Redactor.cs`,
+  namespace `NoMistakes.Scm.SafeUrl`, static class `Redactor`
+  (`RedactText`, `Redact`). Mirrors Go `internal/safeurl`. The slice-4 local
+  copy in `NoMistakes.Git` was deleted; `GitClient` now references
+  `NoMistakes.Scm` (`NoMistakes.Git.csproj` has the ProjectReference).
+  Later SCM code (slices 6a.2+) goes in the same project — provider parsing
+  probably under namespace `NoMistakes.Scm` proper, keeping `SafeUrl` as the
+  sub-namespace analogous to Go's separate `safeurl` package.
+- `NoMistakes.Scm.csproj` follows the repo convention: bare SDK project,
+  `InternalsVisibleTo NoMistakes.Tests`, no explicit TFM (comes from
+  `dotnet/Directory.Build.props`: net10.0, nullable, warnings-as-errors).
+- Redactor tests moved to `dotnet/tests/NoMistakes.Tests/SafeUrlRedactorTests.cs`
+  (class name `RedactorTests` kept); removed from `GitHookAndEnvTests.cs`.
+- Solution edited by hand (no local dotnet SDK — Docker only). `NoMistakes.Scm`
+  GUID: `{4F8D2B6A-1C3E-4E7B-9A5D-8E2F0C1B3D4E}`, nested under the `src`
+  solution folder `{827E0CD3-B72D-47B6-A68D-7590B98EB39B}`. New projects need:
+  Project entry, 12 config lines (Debug/Release × Any CPU/x64/x86, all mapping
+  to Any CPU), and a NestedProjects line. The sln starts with a UTF-8 BOM —
+  preserve it when scripting edits (`encoding='utf-8-sig'`).
+- Verification: `docker build -f Dockerfile.test.dotnet .` — 185 tests passed
+  after the move (baseline on main plus relocated Redactor tests).
+- `Redactor.Redact` keeps the `redacted:@` → `redacted@` normalization hack to
+  match the Go oracle (`url.User("redacted")` renders without the colon).

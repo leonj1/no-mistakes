@@ -17,7 +17,7 @@ public sealed class ConfigTests
         var cfg = ConfigLoader.LoadGlobal(Path.Combine("nonexistent-dir", "config.yaml"));
 
         Assert.Equal(AgentNames.Auto, cfg.Agent);
-        Assert.Equal(Config.DefaultCiTimeout, cfg.CiTimeout);
+        Assert.Equal(NoMistakes.Config.Config.DefaultCiTimeout, cfg.CiTimeout);
         Assert.Equal("info", cfg.LogLevel);
         Assert.Null(cfg.AgentPathOverride);
     }
@@ -92,7 +92,7 @@ public sealed class ConfigTests
 
         var cfg = ConfigLoader.LoadGlobal(path);
 
-        Assert.Equal(Config.CiTimeoutUnlimited, cfg.CiTimeout);
+        Assert.Equal(NoMistakes.Config.Config.CiTimeoutUnlimited, cfg.CiTimeout);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public sealed class ConfigTests
 
         var cfg = ConfigLoader.LoadGlobal(path);
         Assert.Equal(AgentNames.Auto, cfg.Agent);
-        Assert.Equal(Config.DefaultCiTimeout, cfg.CiTimeout);
+        Assert.Equal(NoMistakes.Config.Config.DefaultCiTimeout, cfg.CiTimeout);
         Assert.Equal("info", cfg.LogLevel);
     }
 
@@ -218,7 +218,7 @@ public sealed class ConfigTests
         var merged = ConfigLoader.Merge(global, new RepoConfig());
 
         Assert.Equal(AgentNames.Auto, global.Agent);
-        Assert.Equal(Config.DefaultCiTimeout, global.CiTimeout);
+        Assert.Equal(NoMistakes.Config.Config.DefaultCiTimeout, global.CiTimeout);
         Assert.Equal("info", global.LogLevel);
         Assert.Equal(3, merged.AutoFix.Lint);
         Assert.Equal(3, merged.AutoFix.Test);
@@ -446,7 +446,7 @@ public sealed class ConfigTests
     [InlineData(StepNames.Pr, 0)]
     public void AutoFixLimitPerStep(string step, int want)
     {
-        var cfg = new Config
+        var cfg = new NoMistakes.Config.Config
         {
             AutoFix = new AutoFix { Lint = 5, Test = 2, Review = 0, Document = 1, Ci = 3, Rebase = 4 },
         };
@@ -474,7 +474,7 @@ public sealed class ConfigTests
     [Fact]
     public void AgentPathHonorsOverride()
     {
-        var cfg = new Config
+        var cfg = new NoMistakes.Config.Config
         {
             Agent = AgentNames.Claude,
             AgentPathOverride = new Dictionary<string, string> { ["claude"] = "/custom/claude" },
@@ -491,14 +491,14 @@ public sealed class ConfigTests
     [InlineData(AgentNames.Droid, "droid")]
     public void AgentPathDefaultBinaries(string agent, string want)
     {
-        Assert.Equal(want, new Config { Agent = agent }.AgentPath());
+        Assert.Equal(want, new NoMistakes.Config.Config { Agent = agent }.AgentPath());
     }
 
     [Fact]
     public void AgentPathAcpUsesAcpxPath()
     {
-        Assert.Equal("acpx", new Config { Agent = "acp:gemini" }.AgentPath());
-        Assert.Equal("/opt/bin/acpx", new Config { Agent = "acp:gemini", AcpxPath = "/opt/bin/acpx" }.AgentPath());
+        Assert.Equal("acpx", new NoMistakes.Config.Config { Agent = "acp:gemini" }.AgentPath());
+        Assert.Equal("/opt/bin/acpx", new NoMistakes.Config.Config { Agent = "acp:gemini", AcpxPath = "/opt/bin/acpx" }.AgentPath());
     }
 
     // ---- Repo trust boundary ----

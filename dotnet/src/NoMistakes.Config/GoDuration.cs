@@ -114,7 +114,7 @@ public static class GoDuration
         return neg ? -d : d;
     }
 
-    private static (long Value, string Rest) LeadingInt(string s)
+    private static (long Value, string Remainder) LeadingInt(string s)
     {
         long x = 0;
         var i = 0;
@@ -130,7 +130,7 @@ public static class GoDuration
         return (x, s.Substring(i));
     }
 
-    private static (long Value, double Scale, string Rest) LeadingFraction(string s)
+    private static (long Value, double Scale, string Remainder) LeadingFraction(string s)
     {
         var i = 0;
         long x = 0;

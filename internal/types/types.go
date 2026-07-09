@@ -133,10 +133,10 @@ const (
 type AgentName string
 
 const (
-	AgentAuto     AgentName = "auto"
-	AgentClaude   AgentName = "claude"
-	AgentCodex    AgentName = "codex"
-	AgentPi       AgentName = "pi"
-	AgentCopilot  AgentName = "copilot"
-	AgentDroid    AgentName = "droid"
+	AgentAuto    AgentName = "auto"
+	AgentClaude  AgentName = "claude"
+	AgentCodex   AgentName = "codex"
+	AgentPi      AgentName = "pi"
+	AgentCopilot AgentName = "copilot"
+	AgentDroid   AgentName = "droid"
 )

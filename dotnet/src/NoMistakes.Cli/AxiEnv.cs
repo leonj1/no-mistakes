@@ -1,20 +1,28 @@
 using NoMistakes.Core;
+using NoMistakes.Daemon;
 using NoMistakes.Data;
 using NoMistakes.Git;
+using NoMistakes.Ipc;
 
 namespace NoMistakes.Cli;
 
 /// <summary>
 /// Bundles the resources an axi subcommand needs: resolved paths, an open
-/// database, and the repo for the current directory. Ports Go's cli.axiEnv /
-/// openAxiEnv / findRepo (read-only half; the ensure-daemon half arrives with
-/// the mutating commands in slice 8c).
+/// database, the repo for the current directory, and - for commands that
+/// mutate run state - a connection to the daemon. Ports Go's cli.axiEnv /
+/// openAxiEnv / findRepo.
 /// </summary>
 public sealed class AxiEnv : IDisposable
 {
     public Paths Paths { get; }
     public Database Db { get; }
     public Repo Repo { get; }
+
+    /// <summary>
+    /// Open connection to the daemon; non-null exactly when the env was opened
+    /// with <c>ensureDaemonConn</c>.
+    /// </summary>
+    public IpcClient? Client { get; private set; }
 
     private AxiEnv(Paths paths, Database db, Repo repo)
     {
@@ -27,20 +35,59 @@ public sealed class AxiEnv : IDisposable
     /// Resolves paths, opens the database, and finds the repo for the current
     /// directory. Errors are thrown for the caller to render as structured TOON.
     /// </summary>
-    public static async Task<AxiEnv> OpenAsync(CancellationToken ct = default)
+    public static Task<AxiEnv> OpenAsync(CancellationToken ct = default) => OpenAsync(false, ct);
+
+    /// <summary>
+    /// Like <see cref="OpenAsync(CancellationToken)"/>, and when
+    /// <paramref name="ensureDaemonConn"/> is true also requires the daemon and
+    /// dials it, populating <see cref="Client"/>. Go's openAxiEnv spawns the
+    /// daemon on demand here; the .NET daemon bootstrap command has not landed
+    /// yet, so a stopped daemon is an error until that slice arrives.
+    /// </summary>
+    public static async Task<AxiEnv> OpenAsync(bool ensureDaemonConn, CancellationToken ct = default)
     {
         var paths = Paths.New();
         paths.EnsureDirs();
         var db = Database.Open(paths.Db);
+        AxiEnv env;
         try
         {
             var repo = await FindRepoAsync(db, ct).ConfigureAwait(false);
-            return new AxiEnv(paths, db, repo);
+            env = new AxiEnv(paths, db, repo);
         }
         catch
         {
             db.Dispose();
             throw;
+        }
+        if (ensureDaemonConn)
+        {
+            try
+            {
+                if (!await DaemonStatus.IsRunningAsync(paths, ct).ConfigureAwait(false))
+                {
+                    throw new InvalidOperationException("start daemon: daemon is not running");
+                }
+                env.Client = await DialAsync(paths, ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                env.Dispose();
+                throw;
+            }
+        }
+        return env;
+    }
+
+    private static async Task<IpcClient> DialAsync(Paths paths, CancellationToken ct)
+    {
+        try
+        {
+            return await IpcClient.DialAsync(paths.Socket, ct).ConfigureAwait(false);
+        }
+        catch (IOException ex)
+        {
+            throw new IOException($"connect to daemon: {ex.Message}", ex);
         }
     }
 
@@ -107,5 +154,9 @@ public sealed class AxiEnv : IDisposable
         }
     }
 
-    public void Dispose() => Db.Dispose();
+    public void Dispose()
+    {
+        Client?.Dispose();
+        Db.Dispose();
+    }
 }

@@ -44,7 +44,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the TOON out
 - [x] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the axi home/status/logs tests passing.
 
-- [ ] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.
+- [x] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `axi run` and `axi abort` tests passing.
 
 - [ ] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.

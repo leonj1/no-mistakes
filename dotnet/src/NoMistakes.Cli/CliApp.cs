@@ -53,10 +53,10 @@ public sealed class CliApp
     }
 
     /// <summary>
-    /// The agent-facing `axi` command tree, read-only surface: home (bare
-    /// `axi`), `axi status`, and `axi logs`. TOON on stdout, structured errors,
-    /// explicit exit codes. Ports Go's newAxiCmd dispatch for the slice-8b
-    /// commands; run/respond/abort arrive in slice 8c.
+    /// The agent-facing `axi` command tree: home (bare `axi`), `axi status`,
+    /// `axi logs`, `axi run`, and `axi abort`. TOON on stdout, structured
+    /// errors, explicit exit codes. Ports Go's newAxiCmd dispatch; respond
+    /// arrives in slice 8c.2.
     /// </summary>
     private int RunAxi(IReadOnlyList<string> args)
     {
@@ -70,6 +70,10 @@ public sealed class CliApp
                 return RunAxiStatus(args.Skip(1).ToList());
             case "logs":
                 return RunAxiLogs(args.Skip(1).ToList());
+            case "run":
+                return RunAxiRun(args.Skip(1).ToList());
+            case "abort":
+                return RunAxiAbort(args.Skip(1).ToList());
             default:
                 stderr.WriteLine($"unknown command: axi {args[0]}");
                 stderr.WriteLine("Run 'no-mistakes --help' for usage.");
@@ -176,6 +180,110 @@ public sealed class CliApp
         {
             var branch = AxiEnv.CurrentBranchForRunResolveAsync().GetAwaiter().GetResult();
             return Emit(AxiQuery.Logs(env.Paths, env.Db, env.Repo, step, runId, full, branch));
+        }
+    }
+
+    /// <summary>
+    /// The `axi run` command: trigger a pipeline run for the current branch
+    /// and drive it to a decision point or outcome. Ports Go's newAxiRunCmd.
+    /// </summary>
+    private int RunAxiRun(IReadOnlyList<string> args)
+    {
+        var autoYes = false;
+        string skipValue = "", intent = "";
+        try
+        {
+            ParseAxiFlags(
+                args,
+                new Dictionary<string, Action<string>>
+                {
+                    ["--skip"] = v => skipValue = v,
+                    ["--intent"] = v => intent = v,
+                },
+                new Dictionary<string, Action>
+                {
+                    ["--yes"] = () => autoYes = true,
+                    ["-y"] = () => autoYes = true,
+                });
+        }
+        catch (ArgumentException ex)
+        {
+            return Emit(AxiOutput.Error(2, ex.Message));
+        }
+
+        List<string> skipSteps;
+        try
+        {
+            skipSteps = DaemonNotifyPush.ParseSkipSteps(skipValue);
+        }
+        catch (ArgumentException ex)
+        {
+            return Emit(AxiOutput.Error(2, ex.Message, AxiQuery.ValidStepsHelp));
+        }
+
+        AxiEnv env;
+        try
+        {
+            env = AxiEnv.OpenAsync(ensureDaemonConn: true).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            return Emit(AxiOutput.Error(1, ex.Message, AxiQuery.RepoInitHelp(ex.Message)));
+        }
+        using (env)
+        {
+            return Emit(AxiDrive.RunAsync(env, stderr, autoYes, skipSteps, intent).GetAwaiter().GetResult());
+        }
+    }
+
+    /// <summary>
+    /// The `axi abort` command: cancel the active run on the current branch,
+    /// or a specific run by id with --run. Ports Go's newAxiAbortCmd.
+    /// </summary>
+    private int RunAxiAbort(IReadOnlyList<string> args)
+    {
+        var runId = "";
+        try
+        {
+            ParseAxiFlags(args, new Dictionary<string, Action<string>>
+            {
+                ["--run"] = v => runId = v,
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return Emit(AxiOutput.Error(2, ex.Message));
+        }
+
+        runId = runId.Trim();
+        if (runId.Length > 0)
+        {
+            // By-id abort needs only NM_HOME plus the daemon, never a
+            // repo/branch/worktree - it reaps orphaned monitors from outside.
+            try
+            {
+                var paths = Paths.New();
+                var outcome = AxiAbort.AbortByRunIdAsync(paths, runId).GetAwaiter().GetResult();
+                return Emit(AxiDrive.RenderAbortByIdOutcome(outcome));
+            }
+            catch (Exception ex)
+            {
+                return Emit(AxiOutput.Error(1, $"abort run: {ex.Message}"));
+            }
+        }
+
+        AxiEnv env;
+        try
+        {
+            env = AxiEnv.OpenAsync(ensureDaemonConn: true).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            return Emit(AxiOutput.Error(1, ex.Message, AxiQuery.RepoInitHelp(ex.Message)));
+        }
+        using (env)
+        {
+            return Emit(AxiDrive.AbortAsync(env).GetAwaiter().GetResult());
         }
     }
 

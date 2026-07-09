@@ -46,6 +46,28 @@ public sealed class Findings
     public List<Finding> Items { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reports whether any finding warrants a fix - that is, any finding whose
+    /// effective action is not "no-op" (a blank action defaults to auto-fix,
+    /// mirroring Go's actionOrDefault). Purely informational findings need no
+    /// fix, so a payload whose findings are all no-op (or that has none)
+    /// returns false. This is what auto-resolve uses to decide whether to fix
+    /// a gate's findings or accept the step as-is. Mirrors Go's
+    /// types.HasActionableFindings.
+    /// </summary>
+    public bool HasActionable()
+    {
+        foreach (var item in Items)
+        {
+            var action = item.Action.Length == 0 ? FindingActions.AutoFix : item.Action;
+            if (action != FindingActions.NoOp)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 /// <summary>Parses findings JSON, tolerating the legacy shapes Go accepts.</summary>

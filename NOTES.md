@@ -568,3 +568,45 @@
   has no list-item encoding for bare strings containing arbitrary text; Go
   emits the same shape.
 - Docker verification: 347 tests passed (319 baseline + 28 new).
+
+## Slice 8c.1
+
+- `AxiDrive` (`dotnet/src/NoMistakes.Cli/AxiDrive.cs`) ports axi_drive.go's
+  runAxiRun/triggerRun/driveRun/gateResolution/renderDriveResult/runAxiAbort
+  (worktree/branch-scoped half; by-id render is `RenderAbortByIdOutcome` over
+  the 7e `AxiAbort` op). `AxiEnv.OpenAsync(ensureDaemonConn: true)` is the
+  ensure-daemon half of openAxiEnv, populating `AxiEnv.Client` — but it does
+  NOT spawn the daemon (no .NET daemon bootstrap command yet); a stopped
+  daemon is an error ("start daemon: daemon is not running"). The daemon
+  slice must add the on-demand spawn there.
+- Go's ciLogReader/ciReadyToMerge (cimonitor.ChecksPassed over the CI step
+  log) is NOT ported: `AxiDrive.RunAsync` takes a
+  `Func<string,bool>? ciChecksPassed` callback (null today = no early
+  checks-passed return). The CI monitor slice must supply the log-parsing
+  half and wire it in CliApp.RunAxiRun. The checks-passed RENDER path
+  (outcome: checks-passed + StaleMonitorGuidance) IS ported and tested.
+- Daemon-side `rerun` and `respond` IPC handlers are still unregistered
+  (RunIpcHandlers has push_received/get_run/get_runs/get_active_run/
+  cancel_run only). `AxiDrive.TriggerRunAsync`'s rerun fallback and
+  `SendRespondAsync` compile against Methods.Rerun/Methods.Respond and will
+  get "unknown method" IpcRpcException until the executor-era slices register
+  them — 8c.1 tests only exercise the push-triggers-run path and
+  autoApprove=false (no respond sent). 8c.2 (respond) needs the daemon
+  handler registered.
+- New `NoMistakes.Git.Gate` holds only `RemoteName = "no-mistakes"` (working
+  repo remote pointing at the gate); gate setup lands with the init slice.
+  New `NoMistakes.Core.ApprovalAction` (approve/fix/skip wire strings).
+  `Findings.HasActionable()` ports types.HasActionableFindings (blank action
+  defaults to auto-fix; only all-no-op or empty is non-actionable).
+- TOON quoting gotcha: run ids are ULIDs starting "01", so
+  `HasLeadingZeroDecimal` quotes them — `run: "01KX..."` in abort/run docs
+  (toon-go does the same; Go tests dodge it with ids like "some-run-id").
+  Assert quoted. Same for messages containing quotes: TOON escapes them, so
+  assert `\\\"deploy\\\"` not `"deploy"`.
+- `AxiDriveCliTests` submission test reuses the 7e.2 CLI-shim + real
+  post-receive hook pattern, with a RunManager runner that parks the run at
+  a review gate (SetRunAwaitingAgent BEFORE the status flip, per the executor
+  invariant) and holds on `Task.Delay(Timeout.Infinite, token)` until cancel.
+  Poll interval knobs (`DrivePollInterval`, `TriggerWaitTimeout`) are
+  internal settable statics; tests currently run at defaults.
+- Docker verification: 370 tests passed (347 baseline + 23 new).

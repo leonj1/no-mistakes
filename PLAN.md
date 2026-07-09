@@ -1,55 +1,60 @@
-# PLAN: .NET Port — Slices 6–17
+# .NET Port Plan
 
-## Overview
+Summary of `VERTICAL_SLICES.md`, restated as a plan of intent.
 
-Continue the incremental Go-to-.NET rewrite of `no-mistakes` under `dotnet/`, tracked in `VERTICAL_SLICES.md`. Slices 1–5 (CLI bootstrap, paths/config, SQLite DB, git wrapper, shell process lifecycle) are done. This plan covers the remaining twelve slices: SCM backends, daemon/IPC, AXI surface, pipeline executor, the step implementations (review/test/lint/format, rebase/push safety, PR creation, CI monitor), native agents, TUI, init/skill/wizard/update/telemetry, and final e2e parity plus release packaging.
+## Intent
 
-The Go implementation stays the compatibility oracle: ported behavior must match Go semantics, and Go regression tests are ported alongside the code they protect.
+Rewrite the Go CLI `no-mistakes` in .NET under `dotnet/`, delivered as independently shippable vertical behavior slices rather than a package-by-package translation. The Go implementation stays the compatibility oracle until the .NET port reaches feature parity. Every slice leaves the solution buildable, testable, and publishable.
 
-## Goals
+## Working Rules
 
-- Reach feature parity of the .NET port with the Go implementation, one independently shippable slice at a time.
-- Preserve every safety invariant documented in `CLAUDE.md` — these are the product:
-  - Repo config trust boundary: `commands.{test,lint,format}` and `agent` load only from the trusted default branch at a pinned SHA; fail closed on fetch failure; pushed branch cannot self-enable `allow_repo_commands`.
-  - Force-push safety: every force push routes through the ported `resolveForcePushDecision` lease guard with the patch-id incorporation check and `^baseSHA` exclusion; `lastSeenSHA` stays the last *observed* head (rebase never refreshes `origin/<branch>` on a force push); fail closed, never degrade to bare `--force`.
-  - Rebase base always comes from freshly fetched remote-tracking refs, never local state; bundled unpushed local-default commits require human approval (non-auto-fixable).
-  - Process-tree lifecycle: every subprocess spawned for a cancellable step/agent goes through the slice-5 `ShellCommand` wrapper; clean-exit descendant reaping, cancellation kills the whole tree, pipe-wedge backstop.
-  - Parked awaiting-agent invariant: set on gate entry before pollers can observe the gate, cleared on respond/cancel and on stale-run recovery.
-  - GitLab specifics: host-scoped auth (`--hostname`, unscoped fallback), no `--state opened`, REST pipeline-jobs endpoint for detached-HEAD worktrees.
-  - Fork routing: push via `Repo.PushURL()`; GitHub PR `--repo` stays on the parent with `<fork_owner>:<branch>` head; existing-PR lookup lists by bare branch and filters head owner; GitLab/Bitbucket fork MR/PR fails closed (skip, no self-PR).
-  - Review auto-fix disabled by default; info-level findings neither park nor auto-fix.
-  - CI `ci_timeout` is an idle timeout (re-arms on base-tip advance), with the `unlimited`/`none`/`off`/`never` keyword sentinel and 7-day default kept in sync with the default config.
+1. Test-first: add or port tests before implementing behavior.
+2. Keep the solution green: `dotnet test dotnet/no-mistakes.sln --no-restore` after every slice.
+3. Keep self-contained single-file publishing working for `NoMistakes.Cli`.
+4. Prefer real temp dirs, real git repos, and real subprocesses where Go tests already cross process/I-O boundaries — no heavy mocking.
+5. Port safety behavior (trust boundaries, force-push leases, process reaping) before convenience behavior.
+6. Update `VERTICAL_SLICES.md` whenever a slice completes, splits, or reorders.
 
-## Constraints
+## Plan by Phase
 
-- **TDD**: port or write tests before implementing each behavior.
-- **No local dotnet SDK**: build and test via `docker build -f Dockerfile.test.dotnet .`.
-- Each slice: branch off the default branch (pull latest first), keep `dotnet/no-mistakes.sln` and `NoMistakes.Tests.csproj` wired and green, mark the slice `Done` in `VERTICAL_SLICES.md` with ported-behavior notes, commit, push, PR against `main`.
-- Prefer real temp dirs, real git repos, and real subprocess execution where the Go tests do; preserve safety behavior before convenience behavior.
-- New dependencies (e.g. a TUI library for slice 15) get documented and discussed; the lipgloss/bubbletea substitute choice is written down in slice 15.
-- Windows process-group/job-object parity gaps deferred from slice 5 are resolved or explicitly documented as known/release-blocking in slice 17.
+### Phase A — Foundations (Done)
 
-## Architecture
+- **Slice 1 — Bootstrap CLI and build artifact.** Root help, `--version`, unknown-command exit codes, single-file publish. (`NoMistakes.Cli`, `NoMistakes.Core`)
+- **Slice 2 — Paths, environment, config loading.** `NM_HOME` layout, strict global config parsing, lenient repo config, Go-duration `ci_timeout` compatibility, and the `EffectiveRepoConfig` trust boundary (code-executing fields only from trusted default branch unless `allow_repo_commands`). Deferred: `ResolveAgent` PATH resolution to slice 14. (`NoMistakes.Core`, `NoMistakes.Config`)
+- **Slice 3 — SQLite run database.** Same schema as Go, idempotent additive migrations, ULID keys, awaiting-agent set/clear, single-transaction stale-run recovery, stats rollups. (`NoMistakes.Data`)
+- **Slice 4 — Git wrapper and repository model.** `GitClient` subprocess runner with bare-gate-repo `--git-dir` handling (`safe.bareRepository=explicit`), non-interactive env, worktree/remote/ref helpers, post-receive hook install, URL redaction. Deferred: full `safeurl`/SCM surface to slice 6, `notify-push` daemon command to slice 7. (`NoMistakes.Git`)
+- **Slice 7 — Daemon IPC and run lifecycle.** Daemon start/stop, request/response IPC, run manager, cancellation, stale recovery, `axi abort --run <id>` outside a worktree as idempotent no-op on unknown targets. (`NoMistakes.Daemon`, `NoMistakes.Ipc`)
 
-New/extended .NET projects under `dotnet/src`, mirroring the Go package boundaries:
+### Phase B — Command Surface and Execution Core (Current)
 
-| Slice | .NET project(s) | Go source |
+- **Slice 8 — AXI command surface and gates** *(in progress: `axi respond` verb dispatch, finding flags, `--step`/`--yes` already ported)*. Agent-driving commands, TOON gate rendering with stable field order, gate responses, parked awaiting-agent signal set before pollers observe the gate and cleared on respond/cancel. Keep skill, live AXI help, and docs in sync.
+- **Slice 5 — Shell process lifecycle.** Cancellable execution, process-tree isolation, clean-exit descendant reaping, pipe-hang backstops, timeout behavior; explicit Windows tests or documented parity gaps. (`NoMistakes.Processes`)
+- **Slice 9 — Pipeline executor and step contracts.** Orchestration, step state transitions, auto-fix loop contracts, run logging, cancellation reaching every subprocess, terminal states matching Go. (`NoMistakes.Pipeline`)
+
+### Phase C — Pipeline Steps and Safety
+
+- **Slice 6 — SCM URL parsing and host backends.** Provider detection; GitHub/GitLab/Bitbucket/Azure DevOps URL parsing (HTTPS, SSH, enterprise hosts, subgroups); GitLab host-scoped auth; GitHub fork PR lookup by bare branch with owner filtering; fail-closed fork routing for GitLab/Bitbucket. (`NoMistakes.Scm`)
+- **Slice 10 — Review, test, lint, format steps.** Trusted default-branch command loading enforced; pushed branch cannot self-enable repo commands; review auto-fix disabled by default; info-level findings neither park nor auto-fix.
+- **Slice 11 — Rebase, push, force-push safety.** Rebase onto freshly fetched remote refs only; bundled unpushed local-default commits require approval; force-push lease refuses to clobber unseen upstream commits; `lastSeenSHA` stays the last *observed* head, never a live read; fork pushes use `PushURL()` behavior.
+- **Slice 12 — PR and MR creation.** GitHub `--repo` stays on parent, fork head as `<fork_owner>:<branch>`, existing-PR owner filtering, unsupported fork routing fails closed.
+- **Slice 13 — CI monitor and auto-fix loop.** Idle `ci_timeout` re-armed on default-branch tip advance, `unlimited` keyword sentinel, GitLab branch-independent REST job lookup, CI auto-fix pushes routed through force-push safety.
+
+### Phase D — Agents, UI, and Product Surface
+
+- **Slice 14 — Native agent integrations.** Claude, Codex, Pi, Copilot, Droid, ACP/acpx runners through the process lifecycle wrapper; clean-exit descendant-leak tests; fake agents/fixtures for command construction; full-tree cancellation. (`NoMistakes.Agent`)
+- **Slice 15 — Terminal UI.** After non-interactive CLI and daemon stabilize: run status, steps, findings, gates, logs; clean degradation in non-interactive terminals. (`NoMistakes.Tui`)
+- **Slice 16 — Init, skill, wizard, update, telemetry.** `init` preserves fork URL on refresh, skill generated from one source of truth, disableable update checks, telemetry from build-info.
+
+### Phase E — Parity and Release
+
+- **Slice 17 — End-to-end parity and release packaging.** E2E harness (init, daemon, gates, process cleanup, config trust, push safety, fork routing, CI monitoring), `Dockerfile.dotnet` build/test path, Linux/macOS/Windows artifacts with embedded version/commit/date/telemetry metadata.
+
+## Status Snapshot
+
+| Phase | Slices | Status |
 | --- | --- | --- |
-| 6 | `NoMistakes.Scm` (absorbs slice-4 `Redactor` as shared `safeurl`) | `internal/scm`, `internal/bitbucket` |
-| 7 | `NoMistakes.Daemon`, `NoMistakes.Ipc` | `internal/daemon`, `internal/ipc` |
-| 8 | `NoMistakes.Cli` (axi), `NoMistakes.Pipeline` (gates) | `internal/cli/axi*.go`, `internal/gate` |
-| 9 | `NoMistakes.Pipeline` (executor, step contracts) | `internal/pipeline` |
-| 10 | `NoMistakes.Pipeline.Steps` (review/test/lint/format) | `internal/pipeline/steps` |
-| 11 | `NoMistakes.Pipeline.Steps`, `NoMistakes.Git` (rebase/push/force-push) | `rebase.go`, `push.go`, `forcepush.go` |
-| 12 | `NoMistakes.Pipeline.Steps`, `NoMistakes.Scm` (PR/MR creation) | `pr.go`, SCM backends |
-| 13 | `NoMistakes.Pipeline.Steps`, `NoMistakes.Daemon` (CI monitor) | `ci*.go` |
-| 14 | `NoMistakes.Agent` | `internal/agent` |
-| 15 | `NoMistakes.Tui` | `internal/tui` |
-| 16 | `NoMistakes.Cli`, `NoMistakes.Core` (init/skill/wizard/update/telemetry) | `internal/skill`, `internal/wizard`, `internal/update`, `internal/telemetry` |
-| 17 | `dotnet/tests` e2e harness, Dockerfiles, release workflow | `internal/e2e`, `Makefile`, CI workflows |
-
-Dependency order is the slice order: 6 (SCM) feeds 12/13; 7 (daemon/IPC) feeds 8/13; 9 (executor) feeds 10–13; 14 (agents) feeds 10's agent-driven test fallback in full fidelity. Slices land sequentially.
-
-## Verification
-
-Per slice: `docker build -f Dockerfile.test.dotnet .` green (runs the full solution test suite in Docker). Slice 17 adds the ported e2e harness covering init, daemon, gates, process cleanup, config trust, push safety, fork routing, and CI monitoring, plus cross-platform publish checks via `Dockerfile.dotnet`/`Dockerfile.build.dotnet`.
+| A Foundations | 1, 2, 3, 4, 7 | Done |
+| B Command surface + execution core | 8, 5, 9 | Slice 8 in progress |
+| C Steps + safety | 6, 10, 11, 12, 13 | Planned |
+| D Agents, UI, product surface | 14, 15, 16 | Planned |
+| E Parity + release | 17 | Planned |

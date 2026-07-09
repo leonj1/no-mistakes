@@ -1,0 +1,1 @@
+Docker build running in background; will report when it finishes. Implementation already complete from prior iteration — verified gate ordering, DB marker, render parity with Go's `formatParkedFor`.

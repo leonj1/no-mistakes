@@ -87,3 +87,50 @@
 - Tests: `dotnet/tests/NoMistakes.Tests/ScmUrlHelperTests.cs` (xunit Theory
   ports of Go `TestExtractHost`/`TestRepoSlug`/`TestProjectPath`).
 - Docker verification: 235 tests passed (197 baseline + 38 new).
+
+## Slice 6b.1
+
+- Command wrappers live in `NoMistakes.Scm` as `NoMistakes.Scm.GitHub.Host` and
+  `NoMistakes.Scm.GitLab.Host` (same per-provider-namespace convention as
+  `RemoteUrl`; consumers referencing both need using-aliases). Both take a
+  positional ctor `(CommandRunner run, Func<bool>? cliAvailable, string host,
+  string repo|projectPath)` mirroring Go's `New`; `"", ""` reproduces the
+  legacy unscoped behavior. 6b.2 should follow this exact shape.
+- CLI execution is abstracted as delegate `NoMistakes.Scm.CommandRunner`
+  (`CommandRunning.cs`): `(name, args, stdin, ct) -> Task<CommandResult>`
+  (Go's per-package `CmdFactory`). **No real process-spawning implementation
+  exists yet** — deliberately deferred so it can be built on slice-5
+  `NoMistakes.Processes`/`ShellCommand` once PR #7 merges (the wrapper needs
+  the process-tree/reaping semantics from CLAUDE.md). Tests use
+  `ScmCommandFakes.Runner` (tests/`ScmCommandFakes.cs`), keyed by the exact
+  "name arg1 arg2 ..." string like Go's helper-process factories — an
+  unexpected command line fails the call, so argument construction is what
+  the fixtures assert. `CommandResult.CombinedOutput` = Stdout+Stderr stands
+  in for Go `CombinedOutput()`; wrappers that Go reads via `Output()` read
+  `.Stdout` only.
+- Shared host surface (`HostTypes.cs`, `IHost.cs`): `PullRequest`,
+  `PullRequestContent`, enums `PullRequestState`/`MergeableState`/`CheckBucket`
+  (Go's raw-string passthrough on unrecognized values maps to
+  `Unknown`/`None` — matches no terminal state, callers keep polling),
+  `Check` (`CompletedAt` is `DateTimeOffset?`, null = Go zero time),
+  `Capabilities`, and `PullRequestUrl.TryExtractNumber` (Go
+  `scm.ExtractPRNumber`). `IHost` deliberately has NO `FindPR` yet — slice 6c
+  adds it (lookup + fork routing); `NewWithFork`/fork-owner head filtering
+  also deferred to 6c. Errors are `ScmCommandException` with Go-shaped
+  messages ("glab mr list: <out>: exit status N"); `CheckAvailabilityAsync`
+  returns `string?` (null = ready) instead of throwing, mirroring Go's
+  `Available() error`.
+- GitLab specifics preserved from Go: host-scoped `glab auth status
+  --hostname <host>` with unscoped fallback when host unknown; NO `--state`
+  flag on `mr list` (removed in glab v1.5x — relevant for 6c); job reads via
+  `glab api --paginate projects/<enc>/pipelines/<id>/jobs` when projectPath
+  set (detached-HEAD-safe), `glab ci get` fallback otherwise; concatenated
+  per-page JSON arrays decoded via repeated `JsonDocument.TryParseValue` over
+  a `Utf8JsonReader`, corrupt page surfaces an error even when earlier jobs
+  parsed. `finished_at`/`completedAt` parsed with `DateTimeOffset.TryParse`
+  (looser than Go's strict RFC3339 — accepted).
+- `GitHub.RemoteUrl.HostPrefixedSlug` (GHE `host/owner/name` for gh `--repo`)
+  landed here as planned in the 6a.3 note.
+- Go's `gh pr create`/`glab mr create` URL comes from combined output; gh PR
+  body streams via stdin `--body-file -` (fake asserts `WantStdin`).
+- Docker verification: 290 tests passed (235 baseline + 55 new).

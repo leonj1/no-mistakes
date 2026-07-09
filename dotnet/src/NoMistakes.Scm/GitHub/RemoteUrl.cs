@@ -59,4 +59,25 @@ public static class RemoteUrl
         }
         return owner + "/" + name;
     }
+
+    /// <summary>
+    /// Returns "host/owner/name" for GitHub Enterprise Server instances and
+    /// plain "owner/name" for github.com. This is the format that the gh
+    /// CLI's --repo flag requires for GHE. Mirrors Go's
+    /// <c>github.HostPrefixedSlug</c>.
+    /// </summary>
+    public static string HostPrefixedSlug(string remoteUrl)
+    {
+        var slug = RepoSlug(remoteUrl);
+        if (slug.Length == 0)
+        {
+            return "";
+        }
+        var host = RemoteHost.ExtractHost(remoteUrl);
+        if (host.Length == 0 || string.Equals(host, "github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return slug;
+        }
+        return host + "/" + slug;
+    }
 }

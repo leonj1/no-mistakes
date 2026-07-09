@@ -178,6 +178,8 @@ public static class FindingsOps
         {
             Items = findings.Items.Select(ToWire).ToList(),
             Summary = findings.Summary,
+            Tested = findings.Tested.Count == 0 ? null : findings.Tested,
+            TestingSummary = findings.TestingSummary.Length == 0 ? null : findings.TestingSummary,
             RiskLevel = findings.RiskLevel,
             RiskRationale = findings.RiskRationale,
         };
@@ -187,6 +189,8 @@ public static class FindingsOps
     private static Findings CarryMeta(Findings f) => new()
     {
         Summary = f.Summary,
+        Tested = new List<string>(f.Tested),
+        TestingSummary = f.TestingSummary,
         RiskLevel = f.RiskLevel,
         RiskRationale = f.RiskRationale,
     };
@@ -273,6 +277,14 @@ public static class FindingsOps
 
         [JsonPropertyName("summary")]
         public string Summary { get; set; } = string.Empty;
+
+        [JsonPropertyName("tested")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? Tested { get; set; }
+
+        [JsonPropertyName("testing_summary")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? TestingSummary { get; set; }
 
         [JsonPropertyName("risk_level")]
         public string RiskLevel { get; set; } = string.Empty;

@@ -24,7 +24,7 @@ public sealed class Executor
     private readonly Database db;
     private readonly Paths paths;
     private readonly Config.Config? config;
-    private readonly object? agent;
+    private readonly IAgent? agent;
     private readonly IReadOnlyList<IStep> steps;
     private readonly GitClient git;
     private readonly EventFunc onEvent;
@@ -35,7 +35,7 @@ public sealed class Executor
         Database db,
         Paths paths,
         Config.Config? config,
-        object? agent,
+        IAgent? agent,
         IReadOnlyList<IStep> steps,
         EventFunc? onEvent = null,
         GitClient? git = null)

@@ -28,5 +28,6 @@
     <ProjectReference Include="..\..\src\NoMistakes.Processes\NoMistakes.Processes.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Ipc\NoMistakes.Ipc.csproj" />
     <ProjectReference Include="..\..\src\NoMistakes.Pipeline\NoMistakes.Pipeline.csproj" />
+    <ProjectReference Include="..\..\src\NoMistakes.Pipeline.Steps\NoMistakes.Pipeline.Steps.csproj" />
   </ItemGroup>
 </Project>

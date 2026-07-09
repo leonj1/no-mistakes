@@ -45,6 +45,8 @@ public sealed class Findings
 {
     public List<Finding> Items { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
+    public List<string> Tested { get; set; } = new();
+    public string TestingSummary { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = string.Empty;
     public string RiskRationale { get; set; } = string.Empty;
 
@@ -102,6 +104,8 @@ public static class FindingsParser
         var result = new Findings
         {
             Summary = wire.Summary ?? string.Empty,
+            Tested = wire.Tested ?? new List<string>(),
+            TestingSummary = wire.TestingSummary ?? string.Empty,
             RiskLevel = wire.RiskLevel ?? string.Empty,
             RiskRationale = wire.RiskRationale ?? string.Empty,
         };
@@ -145,6 +149,12 @@ public static class FindingsParser
 
         [JsonPropertyName("summary")]
         public string? Summary { get; set; }
+
+        [JsonPropertyName("tested")]
+        public List<string>? Tested { get; set; }
+
+        [JsonPropertyName("testing_summary")]
+        public string? TestingSummary { get; set; }
 
         [JsonPropertyName("risk_level")]
         public string? RiskLevel { get; set; }

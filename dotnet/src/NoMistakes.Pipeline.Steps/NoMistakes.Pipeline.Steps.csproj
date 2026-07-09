@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\NoMistakes.Core\NoMistakes.Core.csproj" />
+    <ProjectReference Include="..\NoMistakes.Config\NoMistakes.Config.csproj" />
+    <ProjectReference Include="..\NoMistakes.Data\NoMistakes.Data.csproj" />
+    <ProjectReference Include="..\NoMistakes.Git\NoMistakes.Git.csproj" />
+    <ProjectReference Include="..\NoMistakes.Processes\NoMistakes.Processes.csproj" />
+    <ProjectReference Include="..\NoMistakes.Pipeline\NoMistakes.Pipeline.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NoMistakes.Tests" />
+  </ItemGroup>
+</Project>

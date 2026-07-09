@@ -15,7 +15,7 @@ public sealed class StepContext
     public required Run Run { get; init; }
     public required Repo Repo { get; init; }
     public required string WorkDir { get; init; }
-    public object? Agent { get; init; }
+    public IAgent? Agent { get; init; }
     public Config.Config? Config { get; init; }
     public required Database Db { get; init; }
 

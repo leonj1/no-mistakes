@@ -26,7 +26,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 7. Daemon IPC and run lifecycle | Done | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
 | 8. AXI command surface and gates | Done | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
 | 9. Pipeline executor and step contracts | Done | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |
-| 10. Review, test, lint, and format steps | Planned | `internal/pipeline/steps/review.go`, `test.go`, `lint.go`, `format.go` | `NoMistakes.Pipeline.Steps` |
+| 10. Review, test, lint, and format steps | Done | `internal/pipeline/steps/review.go`, `test.go`, `lint.go`, `format.go` | `NoMistakes.Pipeline.Steps` |
 | 11. Rebase, push, and force-push safety | Planned | `internal/pipeline/steps/rebase.go`, `push.go`, `forcepush.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Git` |
 | 12. PR and MR creation | Planned | `internal/pipeline/steps/pr.go`, SCM backends | `NoMistakes.Pipeline.Steps`, `NoMistakes.Scm` |
 | 13. CI monitor and auto-fix loop | Planned | `internal/pipeline/steps/ci*.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Daemon` |
@@ -301,14 +301,49 @@ Acceptance checks:
 
 ### 10. Review, Test, Lint, and Format Steps
 
+Status: Done.
+
 Port local command execution, trusted command selection, agent-driven test fallback, review finding handling, and format/lint/test step behavior.
+
+Ported behavior (`NoMistakes.Pipeline.Steps`):
+
+- `IAgent`/`AgentRunOpts`/`AgentResult` (in `NoMistakes.Pipeline`) abstract the
+  driving agent; `StepContext.Agent` is now typed to it. The concrete native
+  agents land with slice 14; the steps and tests target this interface.
+- `LintStep`, `TestStep`, and `ReviewStep` mirror Go's `lint.go`/`test.go`/
+  `review.go`: the configured-command paths run the trusted `commands.{lint,test}`
+  via `sh -c` (routed through the slice-5 `ShellCommand` group runner), and the
+  agent paths (no command configured, fix mode, or review) drive `IAgent`.
+- `StepHelpers` ports the shared `common_*` helpers the steps use:
+  `RunShellCommandAsync`, `HasBlockingFindings`, `ResolveBranchBaseShaAsync`
+  (merge-base against the default branch, empty-tree fallback),
+  `MatchIgnorePattern`, `CommitAgentFixesAsync` (stage/commit/update-ref +
+  `UpdateRunHeadSha`), `ExtractCommitSummary`, `ExecuteFixModeAsync`,
+  `DetectNewTestFilesAsync`, and `IsTestFile`.
+- Finding severity/action semantics match Go: blocking (error/warning) findings
+  park; a new test file forces a non-auto-fixable park; info/no-op findings do
+  not park. Review outcomes are `AutoFixable` but the executor's
+  `AutoFixLimit(review)` is 0 by default, so review findings park for a decision.
+  Core `Findings` gained `Tested`/`TestingSummary`/`RiskRationale` for wire
+  parity with the step payloads.
+
+Trusted-command enforcement is inherited from slice 2: the steps read
+`Config.Commands.*`, which `EffectiveRepoConfig` sources from the trusted
+default-branch copy unless `allow_repo_commands` opts in — a pushed branch
+cannot self-enable it. The rich in-repo test-evidence placement (Go's
+`resolveTestEvidenceLocation`) is simplified to a per-run temp evidence dir;
+full evidence placement lands with the evidence/init slices.
 
 Acceptance checks:
 
-- Trusted default-branch command loading is enforced.
-- Pushed-branch config cannot self-enable repo commands.
-- Review auto-fix remains disabled by default.
+- Configured lint/test commands run and their pass/fail outcomes drive parking
+  and auto-fixability; the agent fallback drives `IAgent` and commits fixes.
+- Trusted default-branch command loading is enforced via `EffectiveRepoConfig`
+  (slice 2 tests) and a pushed branch cannot self-enable repo commands.
+- Review auto-fix remains disabled by default (`AutoFixLimit(review) == 0`).
 - Info-level review findings do not park or auto-fix under the default config.
+- `docker build -f Dockerfile.test.dotnet .` restores, builds, and runs the
+  suite (700 tests).
 
 ### 11. Rebase, Push, and Force-Push Safety
 

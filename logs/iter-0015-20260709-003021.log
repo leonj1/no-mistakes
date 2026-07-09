@@ -1,0 +1,9 @@
+Slice 7b done. `docker build -f Dockerfile.test.dotnet .` green: 232 tests passed (212 baseline + 20 new). Committed `cb517b7`, STEPS.md marked `[x]`, NOTES.md appended.
+
+What landed:
+
+- **`NoMistakes.Ipc/Server.cs`** — `IpcServer` port of Go `internal/ipc/server.go` plus the unix `listen()` transport: stale socket file removed before bind, socket chmod 0700, `Handle`/`HandleStream`, `ServeAsync` blocking until `Close()` with connection drain, `Listening` task for readiness, Go-shaped dispatch errors (method-not-found, internal, parse-error-and-keep-reading).
+- **`NoMistakes.Daemon`** (new project, sln GUID `{8C2F4E6B-...}` nested under `src`) — `DaemonHost.RunAsync()`: EnsureDirs, health + shutdown IPC handlers, PID file write, serve on `Paths.Socket`, `ServerPidsDir` exposed from `Paths`; cleanup removes PID file and socket only when the daemon still owns the PID file. `DaemonPidRecord`: JSON `pid`/`started_at`, legacy plain-int parse, non-positive rejection, atomic temp+rename write with injectable rename hook.
+- **Tests** — lifecycle (start serves health, stop via IPC and via method, stale socket replaced, foreign PID file preserved on shutdown, bind failure faults `Ready` and leaves no PID file) and PID-record parse/write suite.
+
+Two decisions worth flagging (both in NOTES.md): class is `DaemonHost`, not `Daemon`, because a type named like its own namespace breaks bare-name resolution in C#; and .NET unlinks the bound unix-socket file on listener dispose (same as Go's unlink-on-close), so the replacement-daemon test asserts PID-file ownership only, not socket-file survival — that was the one test failure the first Docker run caught.

@@ -1,0 +1,8 @@
+Slice 8c.1 done, committed as `728c977`. Docker acceptance passes: 370 tests (347 baseline + 23 new).
+
+Prior iteration left near-complete uncommitted work (`AxiDrive.cs`, `AxiEnv` daemon-conn half, `CliApp` dispatch, `Gate`/`ApprovalAction`, tests). Verified it against Go's `axi_drive.go` — parity solid — then fixed 2 failing test assertions, both TOON quoting mismatches, not code bugs:
+
+- Run ids are ULIDs starting `01`, so toon's leading-zero rule quotes them: `run: "01KX..."`. toon-go behaves identically (checked its `HasLeadingZeroDecimal` source); Go tests never hit it because they use ids like `some-run-id`. Assertion now expects quoted form.
+- `unknown step "deploy"` renders with escaped inner quotes inside the quoted TOON error value; assertion now matches `\"deploy\"`.
+
+STEPS.md marked `[x]`. NOTES.md records the load-bearing gaps for later slices: no daemon on-demand spawn in `AxiEnv.OpenAsync(true)` yet; `ciChecksPassed` callback stubbed until CI monitor slice; daemon-side `rerun`/`respond` handlers still unregistered (8c.2 needs respond registered); and the ULID-quoting gotcha.

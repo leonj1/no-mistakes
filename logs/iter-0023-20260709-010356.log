@@ -1,0 +1,10 @@
+Slice 7e.2 done. PR open: https://github.com/leonj1/no-mistakes/pull/9
+
+What landed:
+
+- **Daemon side**: `RunManager.HandlePushReceivedAsync` ports Go `HandlePushReceived` — ref-deletion zero-SHA guard, gate path → repo id, `GetRepo`, branch-from-ref, then existing `StartRunAsync`. `RunIpcHandlers.Register` now serves `push_received`. Go-shaped error strings kept.
+- **CLI side**: hidden `daemon notify-push` command in `CliApp` (required `--gate/--ref/--old/--new`, repeatable `--push-option`), backed by `DaemonNotifyPush.NotifyPushAsync` plus push-option parse/format helpers (base64 intent transport, unknown-step rejection). `NoMistakes.Cli` gained `InternalsVisibleTo NoMistakes.Tests`.
+- **Tests (18 new)**: push-option helper ports from Go `daemon_cmd_test.go`, op- and CLI-level round trips to live daemon, ref-deletion/unknown-gate/stopped-daemon errors, and full e2e — real slice-4 post-receive script executes shim → real `no-mistakes.dll` → IPC socket → run created in daemon.
+- Acceptance met: `docker build -f Dockerfile.test.dotnet .` green, 279 passed (261 baseline + 18). Slice 7 marked Done in `VERTICAL_SLICES.md` (table + details), step `[x]` in STEPS.md, NOTES.md appended.
+
+One deliberate deviation, recorded in NOTES.md: earlier notes suggested constructing Database+RunManager inside `DaemonHost`, but `RunManager` needs the slice-9 `PipelineRunner` seam, so wiring stays external until the real daemon bootstrap lands. Also, `SkipSteps`/`Intent` cross the wire but aren't stamped on runs yet — slice 9's startRun port must add that.

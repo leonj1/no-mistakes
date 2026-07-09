@@ -1,0 +1,8 @@
+Slice 7a genuinely done. No changes to STEPS.md or FIXES.md needed.
+
+Verified:
+- `NoMistakes.Ipc` project scaffolded: `Protocol.cs`, `Messages.cs`, `WireTypes.cs`, `JsonLineStream.cs`, `IpcJson.cs`
+- Method names mirror Go `internal/ipc/protocol.go` exactly, including `cancel_run` and `push_received` (the `notify-push` message), plus JSON-RPC error codes
+- `CancelRunParams`/`CancelRunResult` and `PushReceivedParams`/`PushReceivedResult` ported with matching `json` field names, incl. `skip_steps` with step-name converter and `intent`
+- Round-trip tests run over real unix-domain socket pair with newline-delimited framing: cancel_run, notify-push, error response, message framing, subscribe event stream, `RunInfo` with awaiting-agent fields, oversized-message rejection, mid-message close
+- `docker build -f Dockerfile.test.dotnet .` succeeds; ran IPC-filtered tests inside built image: 27 passed, 0 failed

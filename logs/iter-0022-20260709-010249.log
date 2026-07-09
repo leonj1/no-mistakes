@@ -1,0 +1,7 @@
+Step 11 genuinely done. No changes needed.
+
+- `AxiAbort.AbortByRunIdAsync` (dotnet/src/NoMistakes.Cli/AxiAbort.cs:26) matches Go `runAxiAbortByRunID`: needs only `Paths` (NM_HOME) plus daemon, no repo/branch/worktree. Daemon liveness check first, then `CancelRun` over IPC. Unknown/inactive id caught via "no active run" error, reported `aborted: false` no-op. Detail strings match Go verbatim.
+- Tests cover all stated cases plus one extra: success, unknown id, inactive run, stopped daemon, stale socket file (AxiAbortByRunIdTests.cs, 5 tests).
+- `docker build -f Dockerfile.test.dotnet .` succeeds. Ran abort-by-id tests inside built image to confirm: `Passed! - Failed: 0, Passed: 5`.
+
+STEPS.md `[x]` stays. FIXES.md untouched.

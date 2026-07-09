@@ -20,40 +20,40 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the Bitbucke
 - [x] **Slice 6c — Existing PR/MR lookup and fork routing.** Port existing PR/MR lookup: GitHub fork lookup lists by bare branch and filters returned head-owner fields (never passes `<owner>:<branch>` to the list command); GitLab/Bitbucket fork routing fails closed on unsupported self-PR cases. Tests cover GitHub fork-owner filtering and the fail-closed GitLab/Bitbucket paths. Mark slice 6 Done in `VERTICAL_SLICES.md` and open the PR.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the PR/MR-lookup tests passing, slice 6 is marked Done in `VERTICAL_SLICES.md`, and a PR is open against `main`.
 
-- [ ] **Slice 7a — Scaffold `NoMistakes.Ipc`; IPC protocol.** Scaffold the `NoMistakes.Ipc` project and port the IPC request/response protocol, including the `CancelRun` and `notify-push` message types, with serialization round-trip tests over a socket pair.
+- [x] **Slice 7a — Scaffold `NoMistakes.Ipc`; IPC protocol.** Scaffold the `NoMistakes.Ipc` project and port the IPC request/response protocol, including the `CancelRun` and `notify-push` message types, with serialization round-trip tests over a socket pair.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with IPC request/response round-trip tests passing.
 
-- [ ] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.
+- [x] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with daemon start/stop tests passing.
 
-- [ ] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.
+- [x] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with run-manager create/cancel/status tests passing.
 
-- [ ] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.
+- [x] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the stale-run-recovery tests passing.
 
-- [ ] **Slice 7e.1 — Abort-by-id.** Port `axi abort --run <id>` working outside a worktree (needs only `NM_HOME` plus the daemon), with unknown/inactive targets and a stopped daemon as idempotent no-ops (`aborted: false`). Tests cover abort-by-id success and each no-op case (unknown id, inactive run, stopped daemon).
+- [x] **Slice 7e.1 — Abort-by-id.** Port `axi abort --run <id>` working outside a worktree (needs only `NM_HOME` plus the daemon), with unknown/inactive targets and a stopped daemon as idempotent no-ops (`aborted: false`). Tests cover abort-by-id success and each no-op case (unknown id, inactive run, stopped daemon).
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the abort-by-id success and no-op tests passing.
 
-- [ ] **Slice 7e.2 — `notify-push` wiring.** Wire in the slice-4 `notify-push` hook command invoked by the post-receive hook, routed over the slice-7a IPC surface to the daemon. Tests cover the hook invocation reaching the daemon. Mark slice 7 Done in `VERTICAL_SLICES.md` and open the PR.
+- [x] **Slice 7e.2 — `notify-push` wiring.** Wire in the slice-4 `notify-push` hook command invoked by the post-receive hook, routed over the slice-7a IPC surface to the daemon. Tests cover the hook invocation reaching the daemon. Mark slice 7 Done in `VERTICAL_SLICES.md` and open the PR.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the notify-push hook-invocation tests passing, slice 7 is marked Done in `VERTICAL_SLICES.md`, and a PR is open against `main`.
 
-- [ ] **Slice 8a — TOON rendering.** Port TOON rendering with stable field order in `NoMistakes.Cli`: the run object, the gate object, and the findings table (including the `significance` column if merged). Tests assert output shape and field order.
+- [x] **Slice 8a — TOON rendering.** Port TOON rendering with stable field order in `NoMistakes.Cli`: the run object, the gate object, and the findings table (including the `significance` column if merged). Tests assert output shape and field order.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the TOON output-shape/field-order tests passing.
 
-- [ ] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.
+- [x] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the axi home/status/logs tests passing.
 
-- [ ] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.
+- [x] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `axi run` and `axi abort` tests passing.
 
-- [ ] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.
+- [x] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the approve/fix/skip verb tests passing.
 
-- [ ] **Slice 8c.2b — `axi respond` finding flags.** Port the `--findings` and `--add-finding` flags on `axi respond`, including finding-payload parsing and validation errors for malformed payloads. Tests cover each flag's payload path and the malformed-payload errors.
+- [x] **Slice 8c.2b — `axi respond` finding flags.** Port the `--findings` and `--add-finding` flags on `axi respond`, including finding-payload parsing and validation errors for malformed payloads. Tests cover each flag's payload path and the malformed-payload errors.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `--findings`/`--add-finding` payload and error tests passing.
 
-- [ ] **Slice 8c.2c — `axi respond` `--step` targeting and `--yes` default.** Port the `--step` flag (targeting a specific parked step) and the `--yes` default behavior on `axi respond`. Tests cover step targeting, targeting a non-parked step, and the `--yes` default path.
+- [x] **Slice 8c.2c — `axi respond` `--step` targeting and `--yes` default.** Port the `--step` flag (targeting a specific parked step) and the `--yes` default behavior on `axi respond`. Tests cover step targeting, targeting a non-parked step, and the `--yes` default path.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `--step` and `--yes` tests passing.
 
 - [ ] **Slice 8d — Parked awaiting-agent signal.** Port the awaiting-agent signal in `NoMistakes.Pipeline`: set on gate entry before pollers can observe the parked step, cleared the moment the gate wait returns (respond or cancel); render `awaiting_agent: parked <duration>` in the run object only while set and the run is non-terminal, with an injectable clock. Tests cover the set-before-observe and clear-on-respond-or-cancel invariants plus the render.

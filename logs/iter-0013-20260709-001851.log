@@ -1,0 +1,14 @@
+Slice 7a done. `docker build -f Dockerfile.test.dotnet .` green: 212 tests passed (185 main baseline + 27 new), acceptance criterion met.
+
+What landed on new branch `claude/vertical-slice-seven-ipc` (cut from `origin/main`, commit `92f59aa`, pushed):
+
+- **`NoMistakes.Ipc` project** porting Go `internal/ipc/protocol.go`: `Methods` (incl. `cancel_run` and `push_received` — the message `daemon notify-push` sends), `ErrorCodes`, `Request`/`Response`/`RpcError` with `JsonElement?` as Go's `json.RawMessage`, all params/results, `RunInfo`/`StepResultInfo`/`IpcEvent`, `Protocol.NewRequest/NewResponse/NewErrorResponse` with atomic id counter.
+- **Framing**: `JsonLineStream` — newline-delimited JSON mirroring Go's `json.Encoder`+`bufio.Scanner`, 1 MiB cap (exactly 1 MiB accepted, one byte more throws), null on clean EOF, `IOException` mid-message.
+- **Normalization**: "babysit" → "ci" on read via per-property JSON converters, mirroring Go `StepName.UnmarshalJSON`.
+- **`Core.Finding`** gained snake_case `JsonPropertyName` tags so `RespondParams.AddedFindings` serializes with Go's wire names; `FindingsParser` unaffected.
+- **Tests**: protocol_test.go port + unix-domain-socket-pair round trips (cancel_run, notify-push, error response, pipelined framing, subscribe event stream, oversized rejection, mid-message EOF).
+
+Two things worth flagging:
+
+- `STEPS.md`/`NOTES.md` existed only on the slice-6 branch, not main — carried onto this branch via `git checkout claude/vertical-slice-six-scm -- STEPS.md NOTES.md`, then marked 7a `[x]` and appended slice-7a notes (framing gotchas, converter attribute requirement, deferred 30s read-deadline for 7b's client).
+- Empty-string omitempty parity with Go is intentionally not preserved (`""` serializes as `""`); both sides parse tolerantly — documented in NOTES.md.

@@ -1,0 +1,7 @@
+Slice 7b genuinely done. Verified, no changes needed.
+
+- `NoMistakes.Daemon` scaffolded: `DaemonHost.cs` ports Go `RunWithOptions` lifecycle (socket via `IpcServer.ServeAsync`, PID file write, `ServerPidsDir` from `Paths`, ownership-guarded cleanup so replacement daemon artifacts survive). `DaemonPidRecord.cs` ports PID file with atomic temp-rename write, legacy plain-integer parse, PID-reuse detection via start time.
+- Tests cover claim fully: start + health over socket + PID file write, shutdown via IPC and via method (idempotent), stale socket replacement, replacement-daemon PID file preservation, unknown method error, startup failure faults `Ready` and leaves no PID file. Plus `DaemonPidRecordTests.cs`.
+- Acceptance check: `docker build -f Dockerfile.test.dotnet .` succeeds — `dotnet test` layer cached against identical source, meaning tests passed on exactly this content.
+
+STEPS.md `[x]` stays. No FIXES.md entry.

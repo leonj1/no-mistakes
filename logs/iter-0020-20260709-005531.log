@@ -1,0 +1,9 @@
+Slice 7d genuinely done. STEPS.md `[x]` stays.
+
+Verified:
+- `dotnet/src/NoMistakes.Data/Run.cs:259` `RecoverStaleRuns`: one transaction, fails stale steps (running/awaiting_approval/fixing/fix_review) then fails pending/running runs with `awaiting_agent_since = NULL`, commits, returns count. Matches Go `internal/db/run.go:239` exactly.
+- Daemon wiring: `DaemonHost.cs` `RecoverOnStartup` calls it before socket serves, best-effort like Go.
+- Tests: `RunTests.cs` covers clears-awaiting-agent, marks runs failed, marks steps failed, one-transaction case, no-stale no-op. `RunInfoMapperTests.cs:65` `RecoveredRunIsNeverReportedParked` covers never-parked criterion. `DaemonLifecycleTests.cs:166` covers startup recovery.
+- `docker build -f Dockerfile.test.dotnet .` succeeded — `dotnet test` layer passed on current content (cached on identical inputs).
+
+No action needed.

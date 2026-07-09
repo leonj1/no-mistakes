@@ -1,0 +1,7 @@
+Step 17 genuinely done. No changes needed.
+
+- Code: `dotnet/src/NoMistakes.Cli/AxiDrive.cs` ports Go faithfully — `ParseAddFinding` mirrors `parseAddFinding` (`internal/cli/axi_query.go:252`): JSON decode, case-insensitive keys, "description is required" on blank description. `RespondAsync` fix branch matches Go's (`axi_drive.go:636-655`): usage error 2 when neither `--findings` nor `--add-finding`, instructions map fan-out per finding ID, `invalid --add-finding` error with same hint. CLI wires `--findings`/`--instructions`/`--add-finding` in `CliApp.cs:248-256`.
+- Tests: `AxiRespondTests.cs` covers findings+instructions routing to parked gate, add-finding routing, malformed add-finding usage error (gate stays parked), missing-payload error, plus `ParseAddFinding` unit tests (full object decode, malformed JSON, missing description).
+- `docker build -f Dockerfile.test.dotnet .` succeeds — `dotnet test` layer green (cached on identical content, meaning it passed with exactly these files).
+
+STEPS.md `[x]` for slice 8c.2b stands.

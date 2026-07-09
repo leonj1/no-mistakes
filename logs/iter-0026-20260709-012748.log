@@ -1,0 +1,10 @@
+Step 13 genuinely done. No changes needed.
+
+Verified:
+- `dotnet/src/NoMistakes.Cli/Toon.cs` — TOON encoder (2-space indent, comma delimiter, quoting rules, tabular arrays), faithful port of toon-go subset.
+- `dotnet/src/NoMistakes.Cli/AxiRender.cs` — run object (`id, branch, status, [awaiting_agent], head, [pr], findings, steps{step,status,findings,duration_ms}`) and gate object (`step, status, [summary], [risk], [note], findings{id,severity,file,action,description}`) match Go `axi_render.go` field order exactly.
+- `significance` column: grep of Go source finds no `significance` anywhere — not merged, so omission correct per step's "if merged" qualifier.
+- Tests: `ToonTests.cs` (encoder shape/quoting) + `AxiRenderTests.cs` (exact-document asserts pin field order for run, gate, findings table, parked signal, fix rows).
+- Acceptance: `docker build -f Dockerfile.test.dotnet .` succeeded; `dotnet test` layer passed on current `dotnet/` content (cache is content-addressed, so cached = tests ran clean on this exact code).
+
+STEPS.md stays `[x]`. No FIXES.md entry.

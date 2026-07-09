@@ -1,0 +1,8 @@
+Step 15 genuinely done. No STEPS.md revert, no FIXES.md entry.
+
+**Verification:**
+- Code read: `dotnet/src/NoMistakes.Cli/AxiDrive.cs` (668 lines) is faithful port of Go `axi_drive.go` — `RunAsync` (active-run reattach, preflight guards for detached HEAD/default branch/dirty tree, required `--intent`, push-through-gate with rerun fallback), `DriveRunAsync` (poll loop, `--yes` gate auto-resolution with fix-once-then-approve convergence, double-approve race guard via `WaitStepLeavesGateAsync`), `RenderDriveResult`, and branch-scoped `AbortAsync` with idempotent no-op. `CliApp.cs` dispatches `run`/`abort` correctly.
+- Tests: 15 facts across `AxiDriveTests.cs` + `AxiDriveCliTests.cs`, including run submission through gate + scoped abort cancel, preflight guard rejections, abort-by-id no-op with stopped daemon.
+- Docker check: first `docker build -f Dockerfile.test.dotnet .` succeeded with every layer CACHED — including `dotnet test` layer. Cache is content-addressed, so identical `dotnet/` content already passed tests (iter-0031 log confirms: 370 tests, 347 baseline + 23 new).
+
+**Environment problem, not code problem:** attempted `--no-cache` rerun failed with `write /var/lib/docker/buildkit/.../metadata_v2.db: input/output error` — host disk 99% full (131Mi free on 460Gi). Docker VM cannot write. No local dotnet SDK for fallback. Free disk space before next docker-dependent iteration; this will block slice 8c.2 acceptance checks.

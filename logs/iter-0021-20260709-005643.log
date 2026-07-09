@@ -1,0 +1,10 @@
+Slice 7e.1 done. Docker build green: 261 tests passed (5 new). Committed `527bf4d`.
+
+What landed:
+
+- **`NoMistakes.Ipc/Client.cs`** — first .NET IPC client, port of Go `ipc.Dial`/`Call`. `IpcClient.DialAsync` throws `IOException` ("dial ipc: ...") when nothing listens; `CallAsync<T>` sends JSON-RPC over the newline-framed socket with a 30s response timeout. Server errors surface as `IpcRpcException` whose `Message` is the raw server text, mirroring Go's `*RPCError.Error()`.
+- **`NoMistakes.Daemon/DaemonStatus.cs`** — `IsRunningAsync(Paths)`, port of `daemon.IsRunning`: dial socket, call health, any failure (including a stale socket file from a crash) reads as not running.
+- **`NoMistakes.Cli/AxiAbort.cs`** — `AbortByRunIdAsync(Paths, runId)` returning `AxiAbortOutcome(Aborted, RunId, Detail)`. Needs only `NM_HOME` (via `Paths`) plus the daemon — no repo/branch/worktree resolution. Stopped daemon and unknown/inactive run id both return `Aborted=false` with Go's literal detail strings; the "no active run" RPC error string from `RunManager.HandleCancel` is the mapping key. Slice 8 wires the command surface and TOON rendering on top.
+- **Tests** (`AxiAbortByRunIdTests.cs`, daemon collection) — success against a live run through a real `DaemonHost` (run lands cancelled with the aborted-by-user reason), plus no-ops for unknown id, finished/inactive run, stopped daemon, and stale socket file.
+
+STEPS.md checked off; NOTES.md documents the client API, the error-string contract HandleCancel must keep stable, and the start-daemon-before-run test ordering (startup recovery fails pre-existing runs).

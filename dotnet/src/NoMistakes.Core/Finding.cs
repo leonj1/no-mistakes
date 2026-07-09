@@ -7,16 +7,33 @@ namespace NoMistakes.Core;
 /// A single review, test, lint, or PR comment finding. Mirrors Go's
 /// types.Finding. Only the subset needed by the run database (stats
 /// aggregation) is modelled here; richer behavior lands with later slices.
+/// The JsonPropertyName tags mirror Go's json tags so the type serializes
+/// directly on wire surfaces (e.g. the IPC RespondParams.AddedFindings).
 /// </summary>
 public sealed class Finding
 {
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("severity")]
     public string Severity { get; set; } = string.Empty;
+
+    [JsonPropertyName("file")]
     public string File { get; set; } = string.Empty;
+
+    [JsonPropertyName("line")]
     public int Line { get; set; }
+
+    [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("action")]
     public string Action { get; set; } = string.Empty;
+
+    [JsonPropertyName("source")]
     public string Source { get; set; } = string.Empty;
+
+    [JsonPropertyName("user_instructions")]
     public string UserInstructions { get; set; } = string.Empty;
 }
 
@@ -28,6 +45,29 @@ public sealed class Findings
 {
     public List<Finding> Items { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
+    public string RiskLevel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reports whether any finding warrants a fix - that is, any finding whose
+    /// effective action is not "no-op" (a blank action defaults to auto-fix,
+    /// mirroring Go's actionOrDefault). Purely informational findings need no
+    /// fix, so a payload whose findings are all no-op (or that has none)
+    /// returns false. This is what auto-resolve uses to decide whether to fix
+    /// a gate's findings or accept the step as-is. Mirrors Go's
+    /// types.HasActionableFindings.
+    /// </summary>
+    public bool HasActionable()
+    {
+        foreach (var item in Items)
+        {
+            var action = item.Action.Length == 0 ? FindingActions.AutoFix : item.Action;
+            if (action != FindingActions.NoOp)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 /// <summary>Parses findings JSON, tolerating the legacy shapes Go accepts.</summary>
@@ -58,7 +98,11 @@ public static class FindingsParser
             items = wire.Legacy;
         }
 
-        var result = new Findings { Summary = wire.Summary ?? string.Empty };
+        var result = new Findings
+        {
+            Summary = wire.Summary ?? string.Empty,
+            RiskLevel = wire.RiskLevel ?? string.Empty,
+        };
         if (items != null)
         {
             foreach (var w in items)
@@ -99,6 +143,9 @@ public static class FindingsParser
 
         [JsonPropertyName("summary")]
         public string? Summary { get; set; }
+
+        [JsonPropertyName("risk_level")]
+        public string? RiskLevel { get; set; }
     }
 
     private sealed class FindingWire

@@ -1,0 +1,9 @@
+Step 16 genuinely done. No changes needed.
+
+Verified:
+- `AxiDrive.RespondAsync` ports `runAxiRespond`: action validated pre-env (`ValidateRespondAction`), active-run lookup, parked-gate lookup, respond over IPC, wait-leaves-gate, drive to next decision point. Fix-without-findings usage error matches Go's line 638 exactly (finding flags deferred to 8c.2b, correct).
+- `RunManager` responder registry + `RunIpcHandlers` register `Methods.Respond`; "no active executor" error path present.
+- Tests cover all three verbs: approve/skip via CLI theory driving parked gate to outcome, fix via IPC with finding IDs routed to gate, fix-without-selection exit 2 leaving gate parked, no-run/no-gate errors, action validation before env, `GateStatusFor` fallback.
+- `docker build -f Dockerfile.test.dotnet .` succeeded — `dotnet test` layer passed (cached, content unchanged since passing build).
+
+STEPS.md `[x]` stands. No FIXES.md entry.

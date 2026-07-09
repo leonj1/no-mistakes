@@ -1,0 +1,8 @@
+Step 12 genuinely done. All acceptance criteria hold:
+
+- **notify-push wiring**: `dotnet/src/NoMistakes.Cli/DaemonNotifyPush.cs` + `PostReceiveHook.cs`, IPC message types in `NoMistakes.Ipc`. Tests in `DaemonNotifyPushTests.cs` cover hook invocation reaching daemon (`NotifyPushStartsRunOnDaemon`, `CliDaemonNotifyPushCommandReachesDaemon`), plus rejection paths (ref deletion, unknown gate repo, stopped daemon).
+- **Docker**: `docker build -f Dockerfile.test.dotnet .` succeeds — `dotnet test` layer green (cached on identical content, meaning suite passed on exact tree).
+- **VERTICAL_SLICES.md**: slice 7 marked Done in status table (line 26) and section (line 199).
+- **PR**: #9 "Port slice 7: daemon IPC and run lifecycle to .NET" open against `main`, head matches local HEAD `00f110f`.
+
+No changes needed. STEPS.md `[x]` stays, FIXES.md untouched.

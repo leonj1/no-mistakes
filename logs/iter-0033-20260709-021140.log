@@ -1,0 +1,9 @@
+Slice 8c.2a done. Docker build green: 379 tests passed (370 baseline + 9 new). Committed `3f4f543`, STEPS.md marked, NOTES.md updated.
+
+What landed:
+
+- **Daemon**: `RunManager` gained responder registry — `ApprovalResponder` delegate, `RegisterResponder(runId, ...)`, `HandleRespond(...)` with Go's exact "no active executor for run <id>" error. This is Go's `m.executors` map reduced to seam; slice-9 executor plugs in here and owns step-mismatch validation. Auto-deregistered when run finishes. `RunIpcHandlers` now registers `respond` method.
+- **CLI**: `axi respond --action approve|fix|skip` in CliApp; `AxiDrive.ValidateRespondAction` (exit-2 usage errors, validated before env open, Go order) + `AxiDrive.RespondAsync` (ports `runAxiRespond`: resolve awaiting step, send respond, wait step leaves gate, drive to next decision point or outcome) + `GateStatusFor`.
+- **Tests** (`AxiRespondTests.cs`): approve/skip end-to-end through CliApp with park-until-respond runner; fix verb gate resolution over IPC wire (finding IDs reach parked step) since CLI finding flags arrive 8c.2b — CLI `--action fix` keeps Go's exit-2 empty-selection error; no-active-run, no-parked-step, no-responder, validate-before-env cases.
+
+Gotcha worth flagging: first Docker build failed with containerd I/O errors — host disk was 100% full (125 MiB free). Freed ~3.5 GiB of regenerable caches (`~/Library/Caches/{go-build,Homebrew,VSCode/Discord ShipIt}`) and restarted Docker Desktop; build then ran clean. Noted in NOTES.md. Disk still tight (~3.5 GiB free) — worth cleanup soon.

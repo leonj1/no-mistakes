@@ -1,0 +1,9 @@
+Slice 7d done. Commit `7d68ac1`, 256 tests pass in `docker build -f Dockerfile.test.dotnet .`.
+
+Key finding: `Database.RecoverStaleRuns` already existed in `dotnet/src/NoMistakes.Data/Run.cs` (ported with data layer) — single transaction, steps failed first, awaiting-agent cleared. So 7d work = daemon wiring + missing test coverage, not re-port.
+
+Changes:
+- `DaemonHost` ctor takes optional `Database?`; `RunAsync` runs `RecoverOnStartup()` after `EnsureDirs`, before PID write and socket serve (Go order). Best-effort: recovery exception swallowed, daemon keeps starting. Null db = no-op until 7e.2 constructs Database in daemon.
+- New public const `DaemonHost.CrashRecoveryError` = `"daemon crashed during execution"`.
+- Tests (3 new): `RecoverStaleRunsFailsRunAndStepsInOneTransaction` (run + parked step failed together, same error, step `completed_at` stamped, marker cleared), `RecoveredRunIsNeverReportedParked` (RunToInfo wire level: `AwaitingAgent=false`, `AwaitingAgentSince=null` after recovery), `StartupRecoversStaleRunsBeforeServing` (port of Go `TestRecoverStaleRunsOnStartup`, asserts recovery done by `Ready`).
+- STEPS.md marked `[x]`; NOTES.md appended — flagged that `reapOrphanedServers`/`migrateGateConfigs`/worktree cleanup remain unported for later slices.

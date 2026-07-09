@@ -373,3 +373,32 @@
   port + awaiting-agent derivation), `RunIpcHandlerTests.cs` (handlers over a
   real unix socket, incl. cancel_run driving a live manager). Docker
   verification: 253 tests passed (232 baseline + 21 new).
+
+## Slice 7d
+
+- `Database.RecoverStaleRuns` was ALREADY ported (with the slice-3 data layer,
+  `dotnet/src/NoMistakes.Data/Run.cs`) including the single transaction and
+  awaiting-agent clear; 7d added the daemon wiring plus the missing test
+  coverage rather than re-porting the DB method.
+- Daemon wiring: `DaemonHost` ctor gained an optional `Database? db` param;
+  `RunAsync` calls private `RecoverOnStartup()` right after `EnsureDirs`,
+  BEFORE the PID file is written and the socket serves (Go recoverOnStartup
+  order). Recovery is best-effort (exception swallowed, daemon keeps
+  starting, like Go's slog.Error path). With `db == null` (all pre-7d
+  callers/tests) it is a no-op — 7e.2 should pass the real Database when it
+  constructs Database+RunManager in the daemon.
+- Error message constant: `DaemonHost.CrashRecoveryError` =
+  `"daemon crashed during execution"` (public — tests and later slices
+  reference it instead of re-typing the literal).
+- Go recoverOnStartup's other duties (reapOrphanedServers,
+  migrateGateConfigs, orphaned-worktree cleanup) still NOT ported —
+  `RecoverOnStartup` doc comment marks them for later slices.
+- New tests: `RunTests.RecoverStaleRunsFailsRunAndStepsInOneTransaction`
+  (run + gate-parked step failed together, same error, step completed_at
+  stamped, marker cleared), `RunInfoMapperTests.RecoveredRunIsNeverReportedParked`
+  (wire-level: recovered run RunToInfo has AwaitingAgent=false/Since=null),
+  and `DaemonLifecycleTests.StartupRecoversStaleRunsBeforeServing` (port of
+  Go TestRecoverStaleRunsOnStartup; asserts recovery completed by the time
+  `Ready` resolves). Existing 7b lifecycle tests construct `DaemonHost(paths)`
+  without a db and are unaffected.
+- Docker verification: 256 tests passed (253 baseline + 3 new).

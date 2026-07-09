@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using NoMistakes.Core;
 using NoMistakes.Daemon;
+using NoMistakes.Data;
 using NoMistakes.Ipc;
 using Xunit;
 
@@ -156,6 +157,40 @@ public class DaemonLifecycleTests
             Assert.NotNull(response!.Error);
             Assert.Equal(ErrorCodes.MethodNotFound, response.Error!.Code);
         }
+
+        daemon.Shutdown();
+        await run.WaitAsync(Timeout);
+    }
+
+    [Fact]
+    public async Task StartupRecoversStaleRunsBeforeServing()
+    {
+        using var tmp = new TempDir();
+        var paths = Paths.WithRoot(tmp.Path);
+        paths.EnsureDirs();
+
+        // A previous daemon crashed mid-run: running run, in-progress step,
+        // parked awaiting the agent. (Ports Go TestRecoverStaleRunsOnStartup.)
+        using var db = Database.Open(paths.Db);
+        var repo = db.InsertRepo("/tmp/stale-repo", "https://github.com/test/stale", "main");
+        var staleRun = db.InsertRun(repo.Id, "feature", "abc123", "def456");
+        db.UpdateRunStatus(staleRun.Id, RunStatus.Running);
+        var staleStep = db.InsertStepResult(staleRun.Id, StepName.Review);
+        db.StartStep(staleStep.Id);
+        db.SetRunAwaitingAgent(staleRun.Id);
+
+        var daemon = new DaemonHost(paths, db);
+        var run = Task.Run(daemon.RunAsync);
+        await daemon.Ready.WaitAsync(Timeout);
+
+        // Ready means accepting connections, and recovery ran before that.
+        var recovered = db.GetRun(staleRun.Id)!;
+        Assert.Equal(RunStatus.Failed, recovered.Status);
+        Assert.Equal(DaemonHost.CrashRecoveryError, recovered.Error);
+        Assert.Null(recovered.AwaitingAgentSince);
+        var recoveredStep = db.GetStepResult(staleStep.Id)!;
+        Assert.Equal(StepStatus.Failed, recoveredStep.Status);
+        Assert.Equal(DaemonHost.CrashRecoveryError, recoveredStep.Error);
 
         daemon.Shutdown();
         await run.WaitAsync(Timeout);

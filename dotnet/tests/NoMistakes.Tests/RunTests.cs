@@ -304,6 +304,37 @@ public sealed class RunTests
     }
 
     [Fact]
+    public void RecoverStaleRunsFailsRunAndStepsInOneTransaction()
+    {
+        using var dir = new TempDir();
+        using var db = DataTestSupport.OpenTestDb(dir);
+        var repo = db.InsertRepo("/home/user/project4", "git@github.com:user/project4.git", "main");
+
+        // A crashed daemon leaves a running run parked at a gate: the step is
+        // awaiting approval and the awaiting-agent marker is set.
+        var run = db.InsertRun(repo.Id, "feature", "abc", "def");
+        db.UpdateRunStatus(run.Id, RunStatus.Running);
+        var step = db.InsertStepResult(run.Id, StepName.Review);
+        db.StartStep(step.Id);
+        db.UpdateStepStatus(step.Id, StepStatus.AwaitingApproval);
+        db.SetRunAwaitingAgent(run.Id);
+
+        Assert.Equal(1, db.RecoverStaleRuns("daemon crashed"));
+
+        // One call fails the run and its step together with the same error,
+        // stamps the step's completion, and drops the parked marker.
+        var gotRun = db.GetRun(run.Id)!;
+        Assert.Equal(RunStatus.Failed, gotRun.Status);
+        Assert.Equal("daemon crashed", gotRun.Error);
+        Assert.Null(gotRun.AwaitingAgentSince);
+
+        var gotStep = db.GetStepResult(step.Id)!;
+        Assert.Equal(StepStatus.Failed, gotStep.Status);
+        Assert.Equal("daemon crashed", gotStep.Error);
+        Assert.NotNull(gotStep.CompletedAt);
+    }
+
+    [Fact]
     public void RecoverStaleRunsNoStaleRuns()
     {
         using var dir = new TempDir();

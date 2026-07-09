@@ -1,4 +1,5 @@
 using NoMistakes.Core;
+using NoMistakes.Data;
 using NoMistakes.Ipc;
 
 namespace NoMistakes.Daemon;
@@ -12,14 +13,23 @@ namespace NoMistakes.Daemon;
 /// </summary>
 public sealed class DaemonHost
 {
+    /// <summary>
+    /// Error message written onto stale runs and steps recovered at startup.
+    /// Matches Go's literal in recoverOnStartup; the absence of a stack trace
+    /// behind this message usually means the previous daemon was SIGKILLed.
+    /// </summary>
+    public const string CrashRecoveryError = "daemon crashed during execution";
+
     private readonly Paths paths;
+    private readonly Database? db;
     private readonly IpcServer server = new();
     private readonly TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int shutdownRequested;
 
-    public DaemonHost(Paths paths)
+    public DaemonHost(Paths paths, Database? db = null)
     {
         this.paths = paths;
+        this.db = db;
     }
 
     /// <summary>
@@ -52,6 +62,7 @@ public sealed class DaemonHost
         try
         {
             paths.EnsureDirs();
+            RecoverOnStartup();
 
             server.Handle(Methods.Health, (_, _) =>
                 Task.FromResult<object?>(new HealthResult { Status = "ok" }));
@@ -100,6 +111,30 @@ public sealed class DaemonHost
         {
             ready.TrySetException(ex);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Cleans up after a previous daemon crash by failing stale runs and their
+    /// in-progress steps before the socket starts accepting requests. Ported
+    /// from Go recoverOnStartup, reduced to the RecoverStaleRuns call — server
+    /// reaping, gate-config migration, and worktree cleanup arrive in later
+    /// slices. Best-effort like Go (a recovery failure is logged, not fatal),
+    /// and a no-op until a Database is supplied to the constructor.
+    /// </summary>
+    private void RecoverOnStartup()
+    {
+        if (db is null)
+        {
+            return;
+        }
+        try
+        {
+            db.RecoverStaleRuns(CrashRecoveryError);
+        }
+        catch (Exception)
+        {
+            // Go logs "failed to recover stale runs" and keeps starting.
         }
     }
 

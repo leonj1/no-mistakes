@@ -62,6 +62,30 @@ public class RunInfoMapperTests
     }
 
     [Fact]
+    public void RecoveredRunIsNeverReportedParked()
+    {
+        using var tmp = new TempDir();
+        using var db = DataTestSupport.OpenTestDb(tmp);
+        var repo = db.InsertRepo("/home/user/project", "git@github.com:user/project.git", "main");
+        var run = db.InsertRun(repo.Id, "feature", "abc", "def");
+        db.UpdateRunStatus(run.Id, RunStatus.Running);
+        var step = db.InsertStepResult(run.Id, StepName.Review);
+        db.UpdateStepStatus(step.Id, StepStatus.AwaitingApproval);
+        db.SetRunAwaitingAgent(run.Id);
+
+        db.RecoverStaleRuns("daemon crashed during execution");
+
+        // A crash-recovered (now failed) run must not surface as parked
+        // awaiting the agent on the wire.
+        var recovered = db.GetRun(run.Id)!;
+        var info = RunInfoMapper.RunToInfo(db, recovered, db.GetStepsByRun(run.Id));
+        Assert.Equal(RunStatus.Failed, info.Status);
+        Assert.False(info.AwaitingAgent);
+        Assert.Null(info.AwaitingAgentSince);
+        Assert.Equal(StepStatus.Failed, info.Steps![0].Status);
+    }
+
+    [Fact]
     public void RunToInfoIncludesSteps()
     {
         using var tmp = new TempDir();

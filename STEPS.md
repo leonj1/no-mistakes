@@ -29,7 +29,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with daemon start
 - [x] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with run-manager create/cancel/status tests passing.
 
-- [ ] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.
+- [x] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the stale-run-recovery tests passing.
 
 - [ ] **Slice 7e.1 — Abort-by-id.** Port `axi abort --run <id>` working outside a worktree (needs only `NM_HOME` plus the daemon), with unknown/inactive targets and a stopped daemon as idempotent no-ops (`aborted: false`). Tests cover abort-by-id success and each no-op case (unknown id, inactive run, stopped daemon).

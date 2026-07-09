@@ -1,0 +1,11 @@
+Slice 8a done. Docker build green: 319 tests passed (279 baseline + 40 new). Committed `ea74bb7`, marked `[x]` in STEPS.md, notes appended.
+
+What landed:
+
+- **TOON encoder** (`dotnet/src/NoMistakes.Cli/Toon.cs`) — hand port of toon-go's encoder, no new dependency (no NuGet package matches toon-go's exact output). Ordered `ToonObject`/`ToonField`, Core Profile defaults, full quoting ruleset (numeric-looking, `:\"[]{}`, leading `-`, commas, control chars throw), inline primitive arrays (`help[5]: ...`), tabular row arrays (`steps[2]{step,status,findings,duration_ms}:`). Shapes the axi layer never emits throw — later slices port more if needed.
+- **Render layer** (`AxiRender.cs`) — `RunView`/`StepView` (FromIpc/FromDb, AwaitingStep, FindingsTally, FixRows) plus run object, gate object, findings table, `FormatParkedFor`, `Truncate` (code-point parity with Go runes), injectable `NowUnix` clock. Field order and gate help/note strings byte-for-byte from Go.
+- **No `significance` column** — Go findings table has none; "if merged" condition false. Row stays id,severity,file,action,description.
+- **Core** `Findings` gained `RiskLevel` (`risk_level` wire key) for gate `risk:`; render layer wraps the throwing parser in `ParseFindingsOrEmpty` for Go's ignore-errors semantics.
+- **Tests** — `ToonTests.cs` (quoting matrix, tabular/inline/empty arrays), `AxiRenderTests.cs` (exact-document field-order assert for the run object, parked signal placement + terminal suppression, gate shape with quoted finding row, review-only note, truncation disclosure).
+
+Gotchas recorded in NOTES.md for 8b+: `pr:` URLs render quoted (colon trigger, same as Go); emitDoc/emitError not ported — `AxiRender.Doc` returns the string, 8b's command layer owns stdout/exit codes; `NowUnix`-pinning tests must stay in `AxiRenderTests`.

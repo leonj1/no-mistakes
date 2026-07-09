@@ -23,7 +23,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 4. Git command wrapper and repository model | Done | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
 | 5. Shell process lifecycle | Done | `internal/shellenv` | `NoMistakes.Processes` |
 | 6. SCM URL parsing and host backends | Done | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
-| 7. Daemon IPC and run lifecycle | Planned | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
+| 7. Daemon IPC and run lifecycle | Done | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
 | 8. AXI command surface and gates | Planned | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
 | 9. Pipeline executor and step contracts | Planned | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |
 | 10. Review, test, lint, and format steps | Planned | `internal/pipeline/steps/review.go`, `test.go`, `lint.go`, `format.go` | `NoMistakes.Pipeline.Steps` |
@@ -231,6 +231,8 @@ Acceptance checks:
 - GitLab and Bitbucket fork routing skip unsupported self-PR cases.
 
 ### 7. Daemon IPC and Run Lifecycle
+
+Status: Done.
 
 Port daemon startup, IPC protocol, run manager, run cancellation, stale run recovery, run status, and run abort by id.
 

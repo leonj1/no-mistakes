@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using NoMistakes.Core;
 using NoMistakes.Data;
+using NoMistakes.Ipc;
 
 namespace NoMistakes.Daemon;
 
@@ -92,6 +93,69 @@ public sealed class RunManager
             branchLock.Release();
         }
     }
+
+    /// <summary>
+    /// Handles a push notification from the post-receive hook: resolves the
+    /// gate path to a registered repo and starts a run for the pushed ref.
+    /// Ported from Go RunManager.HandlePushReceived. SkipSteps and Intent are
+    /// accepted on the wire but not yet stamped onto the run — that arrives
+    /// with the slice-9 executor's startRun port.
+    /// </summary>
+    public async Task<string> HandlePushReceivedAsync(PushReceivedParams parameters)
+    {
+        // Ref deletion (git push remote :branch) sends new SHA as all-zeros.
+        // Nothing to validate - skip pipeline.
+        if (IsZeroSha(parameters.New))
+        {
+            throw new InvalidOperationException("ref deletion push, no pipeline to run");
+        }
+
+        var repoId = RepoIdFromGatePath(parameters.Gate);
+
+        Repo? repo;
+        try
+        {
+            repo = db.GetRepo(repoId);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"get repo: {ex.Message}");
+        }
+        if (repo == null)
+        {
+            throw new InvalidOperationException($"unknown repo for gate {parameters.Gate}");
+        }
+
+        var branch = BranchFromRef(parameters.Ref);
+        return await StartRunAsync(repo, branch, parameters.New, parameters.Old).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Extracts the repo ID from a gate bare repo path. Gate paths look like:
+    /// &lt;root&gt;/repos/&lt;id&gt;.git. Mirrors Go repoIDFromGatePath.
+    /// </summary>
+    internal static string RepoIdFromGatePath(string gatePath)
+    {
+        var name = Path.GetFileName(gatePath.TrimEnd(Path.DirectorySeparatorChar, '/'));
+        if (!name.EndsWith(".git", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"invalid gate path: {gatePath}");
+        }
+        return name[..^".git".Length];
+    }
+
+    /// <summary>
+    /// Extracts the branch name from a full git ref: "refs/heads/main" →
+    /// "main", "main" → "main". Mirrors Go branchFromRef.
+    /// </summary>
+    internal static string BranchFromRef(string refName) =>
+        refName.StartsWith("refs/heads/", StringComparison.Ordinal)
+            ? refName["refs/heads/".Length..]
+            : refName;
+
+    // The null/zero SHA git uses for new or deleted branches (Go git.IsZeroSHA).
+    private static bool IsZeroSha(string sha) =>
+        sha == "0000000000000000000000000000000000000000";
 
     /// <summary>
     /// Stops an active run and propagates cancellation to its pipeline.

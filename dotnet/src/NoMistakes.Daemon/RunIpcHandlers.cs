@@ -7,13 +7,20 @@ namespace NoMistakes.Daemon;
 /// <summary>
 /// Registers the run-status and run-cancel IPC methods on a server. Ported
 /// from the run-related handlers in Go internal/daemon/daemon.go
-/// registerHandlers; push_received/rerun/respond/subscribe arrive with the
-/// slices that port their machinery.
+/// registerHandlers; rerun/respond/subscribe arrive with the slices that port
+/// their machinery.
 /// </summary>
 public static class RunIpcHandlers
 {
     public static void Register(IpcServer server, RunManager manager, Database db)
     {
+        server.Handle(Methods.PushReceived, async (parameters, _) =>
+        {
+            var p = RequireParams<PushReceivedParams>(parameters);
+            var runId = await manager.HandlePushReceivedAsync(p).ConfigureAwait(false);
+            return (object?)new PushReceivedResult { RunId = runId };
+        });
+
         server.Handle(Methods.GetRun, (parameters, _) =>
         {
             var p = RequireParams<GetRunParams>(parameters);

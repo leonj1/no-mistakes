@@ -435,3 +435,48 @@
   `RunIpcHandlers.Register` — order matters: start the daemon BEFORE
   `StartRunAsync`, else startup `RecoverStaleRuns` fails the fresh run.
 - Docker verification: 261 tests passed (256 baseline + 5 new).
+
+## Slice 7e.2
+
+- `RunManager.HandlePushReceivedAsync(PushReceivedParams)` ports Go
+  HandlePushReceived: zero-SHA ref-deletion guard, `RepoIdFromGatePath`
+  (internal static; Go's basename+`.git` check), `BranchFromRef`, GetRepo,
+  then the existing 7c `StartRunAsync`. **SkipSteps and Intent are accepted
+  on the wire but NOT stamped onto the run** — 7c's StartRunAsync has no
+  trigger/skip/intent params; slice 9's executor-era startRun port must add
+  them (Go stamps skip_steps/intent at run creation). Error strings are
+  Go-shaped and tests substring-match them: "ref deletion push, no pipeline
+  to run", "invalid gate path: <p>", "unknown repo for gate <gate>".
+- `RunIpcHandlers.Register` now also registers `push_received`; still no
+  rerun/respond/subscribe. Daemon wiring stays EXTERNAL (tests construct
+  Database+RunManager and call Register) — the 7c/7d note about "constructing
+  Database+RunManager in the daemon" was NOT done here because RunManager
+  requires the PipelineRunner seam that only slice 9 fills; the real daemon
+  bootstrap (`daemon run` command) should do that construction when it lands.
+- CLI: `NoMistakes.Cli.DaemonNotifyPush.NotifyPushAsync(Paths, gate, ref,
+  old, new, pushOptions)` is the op (dial failure rethrown as IOException
+  "connect to daemon: ..." for Go message parity); push-option helpers
+  (`ParseSkipPushOptions`/`ParseIntentPushOptions`/`FormatSkipPushOptions`/
+  `FormatIntentPushOption`, internal) live on the same class, incl. the
+  base64 `no-mistakes.intent=` transport and unknown-step rejection
+  (`unknown step "x"`, validated against `StepName.All` — "babysit" is
+  rejected like Go). `CliApp` dispatches `daemon notify-push` with manual
+  flag parsing (required --gate/--ref/--old/--new, repeatable
+  --push-option); hidden — not in help text, errors print `Error: <msg>` to
+  stderr, exit 1 (cobra-ish). Slice 8's command framework should absorb this
+  dispatch.
+- `NoMistakes.Cli.csproj` gained `InternalsVisibleTo NoMistakes.Tests`
+  (first internal CLI surface under test).
+- Hook e2e test (`DaemonNotifyPushTests.PostReceiveHookInvocationReachesDaemon`)
+  runs the REAL slice-4 post-receive script against the REAL CLI binary:
+  test project's output contains `no-mistakes.dll` (Cli is a project ref), a
+  shell shim exports NM_HOME and execs `dotnet no-mistakes.dll "$@"`, hook
+  script generated via `PostReceiveHook.ScriptFor(shim)`, run with cwd = a
+  real `git init --bare` gate dir and GIT_PUSH_OPTION_* env; asserts the run
+  lands in the daemon's RunManager with head/base/branch mapped
+  (New→HeadSha, Old→BaseSha). Pattern reusable for future CLI-as-subprocess
+  tests. `[Collection("daemon")]` — it also mutates nothing global except
+  the two CLI tests that set/restore NM_HOME process-wide (keep NM_HOME
+  mutation inside this collection).
+- Docker verification: 279 tests passed (261 baseline + 18 new). Slice 7
+  marked Done in VERTICAL_SLICES.md (table + details Status line).

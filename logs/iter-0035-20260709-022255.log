@@ -1,0 +1,10 @@
+Slice 8c.2b done, committed as `5a7e5a7`. Docker acceptance passed: 391 tests (379 baseline + 12 new), zero failures.
+
+What landed:
+
+- **`AxiDrive.RespondAsync`** grew three optional params (`findings`, `instructions`, `addFinding`), replacing the 8c.2a always-error fix block with the real port of Go's `runAxiRespond`: finding IDs split for every action (passed even on approve/skip, per Go), fix-only block after gate lookup with empty-selection exit-2 error, instructions note fanned out per finding ID, and add-finding parse with exit-2 `invalid --add-finding: ...` + Go's example-JSON help.
+- **`AxiDrive.SplitCsv`** ports `splitCSV`; **`AxiDrive.ParseAddFinding`** ports `parseAddFinding` (case-insensitive JSON into `Finding`, `FormatException` on malformed JSON or blank description).
+- **`CliApp.RunAxiRespond`** wires `--findings`, `--instructions`, `--add-finding` through `ParseAxiFlags`.
+- **Tests** (`AxiRespondTests.cs`): CLI end-to-end for the `--findings`+`--instructions` payload (CSV trim + note fan-out to parked gate), `--add-finding` payload (decoded finding reaches responder; orphan note dropped without IDs), malformed-payload usage errors leaving the gate parked, plus pure unit coverage for `ParseAddFinding` (valid, malformed JSON, missing description) and `SplitCsv`. `RespondSeen`/`ParkedGateManager` now capture instructions and added findings for 8c.2c reuse.
+
+STEPS.md marked `[x]`; NOTES.md carries the 8c.2b conventions (param-order/Go-order parity, error-text caveat, test-helper reuse).

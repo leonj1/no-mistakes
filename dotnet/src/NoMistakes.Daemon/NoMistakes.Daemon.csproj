@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\NoMistakes.Core\NoMistakes.Core.csproj" />
+    <ProjectReference Include="..\NoMistakes.Data\NoMistakes.Data.csproj" />
     <ProjectReference Include="..\NoMistakes.Ipc\NoMistakes.Ipc.csproj" />
   </ItemGroup>
   <ItemGroup>

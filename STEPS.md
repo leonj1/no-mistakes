@@ -26,7 +26,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with IPC request/
 - [x] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with daemon start/stop tests passing.
 
-- [ ] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.
+- [x] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with run-manager create/cancel/status tests passing.
 
 - [ ] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.

@@ -319,3 +319,57 @@
   failure faults `Ready` and leaves no PID file) and
   `DaemonPidRecordTests.cs`. Docker verification: 232 tests passed
   (212 baseline + 20 new).
+
+## Slice 7c
+
+- `RunManager` (`dotnet/src/NoMistakes.Daemon/RunManager.cs`) ports
+  internal/daemon/manager.go reduced to run lifecycle. The pipeline executor
+  is a delegate seam: `PipelineRunner(Run, Repo, CancellationToken)`, required
+  ctor param — slice 9's executor plugs in here and OWNS run status
+  transitions (running/completed/failed). What the manager writes today,
+  guarded so the future executor is never overwritten:
+  - cancellation (runner throws OperationCanceledException while its CTS is
+    cancelled): writes `cancelled` + the recorded cancel reason, but ONLY if
+    the run is still pending/running in the DB (mirrors Go's executor writing
+    context.Cause). Slice 9 can move this into the executor without breaking
+    the guard.
+  - runner exception: unconditional `failed` + "internal panic: <msg>"
+    (Go's panic recovery).
+  - clean completion: manager touches nothing — a runner that never sets a
+    terminal status leaves the run pending (same as Go).
+- Cancel reasons live in `NoMistakes.Core.RunCancelReason`
+  (AbortedByUser/Superseded = Go types constants, byte-for-byte; plus
+  DaemonShutdown = Go's ad-hoc "daemon shutting down" cause). They become the
+  run's error message.
+- `StartRunAsync(repo, branch, headSha, baseSha)` serializes per repo+branch
+  (ConcurrentDictionary of SemaphoreSlim = Go branchLocks), cancels active
+  same-branch runs with the Superseded reason and waits for them (bounded by
+  internal `CancelWaitTimeout`, default 30s like Go), then InsertRun + spawn.
+  Not ported here (7e.2/later): HandlePushReceived/HandleRerun, worktree
+  setup, trusted-config load, agent creation, telemetry, Subscribe/broadcast,
+  HandleRespond.
+- `HandleCancel` throws InvalidOperationException "no active run <id>" for
+  unknown/finished runs — Go parity. The idempotent `aborted: false` no-op
+  belongs to the CLI layer (slice 7e.1), do NOT add it to the manager.
+- Go's context.WithCancelCause is emulated with a per-run `CancelReason`
+  field set by the FIRST cancel request (`??=`); CTSes are deliberately never
+  disposed (avoids Cancel-vs-Dispose race on the shutdown/supersede paths).
+- `RunInfoMapper.RunToInfo/StepToInfo` (RunInfoMapper.cs) port
+  runToInfo/stepToInfo: AwaitingAgent == (AwaitingAgentSince != null);
+  `Steps`/`FixSummaries` stay null (not empty lists) when empty to match Go
+  omitempty on the wire; stats/fix-summary enrichment is try/catch
+  best-effort like Go's ignored errors.
+- `RunIpcHandlers.Register(server, manager, db)` registers
+  get_run/get_runs/get_active_run/cancel_run only. Error strings Go-shaped:
+  "run not found: <id>", "no active run <id>", "invalid params: ..."; they
+  surface as ErrorCodes.Internal via the 7b server. Nothing is wired into
+  DaemonHost.RunAsync yet — 7e.2 (notify-push) should construct
+  Database+RunManager in the daemon and call Register there, adding
+  push_received; subscribe needs the broadcast machinery (with executor
+  events, slice 9).
+- `NoMistakes.Daemon.csproj` now references `NoMistakes.Data`.
+- Tests: `RunManagerTests.cs` (create/cancel/supersede/branch-isolation/
+  shutdown/panic/clean-completion), `RunInfoMapperTests.cs` (runinfo_test.go
+  port + awaiting-agent derivation), `RunIpcHandlerTests.cs` (handlers over a
+  real unix socket, incl. cancel_run driving a live manager). Docker
+  verification: 253 tests passed (232 baseline + 21 new).

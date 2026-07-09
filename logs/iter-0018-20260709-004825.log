@@ -1,0 +1,8 @@
+Step 9 genuinely done. No change to STEPS.md or FIXES.md.
+
+Evidence:
+- `RunManager.cs` port run creation (`StartRunAsync` with per-repo+branch lock, supersede cancel), `HandleCancel` (throws "no active run" like Go), shutdown, panic-to-failed mapping.
+- `RunInfoMapper.cs` port `runToInfo`/`stepToInfo` with awaiting-agent fields: `AwaitingAgent = AwaitingAgentSince != null`, both on wire shape.
+- `RunIpcHandlers.cs` register `GetRun`/`GetRuns`/`GetActiveRun`/`CancelRun`.
+- Tests cover create, cancel (incl. unknown/finished throw), supersede, shutdown reason, pipeline-owns-terminal-status, awaiting-agent marker set/clear mapping.
+- `docker build -f Dockerfile.test.dotnet .` succeed (test layer green). Ran filtered run in built image direct: `Passed! - Failed: 0, Passed: 21, Skipped: 0, Total: 21` for RunManager/RunInfoMapper/RunIpcHandler tests.

@@ -1,0 +1,10 @@
+Slice 7c done. `docker build -f Dockerfile.test.dotnet .` green: 253 tests passed (232 baseline + 21 new). Committed `7779891`, STEPS.md marked `[x]`, NOTES.md updated.
+
+What landed:
+
+- **`RunManager`** (`dotnet/src/NoMistakes.Daemon/RunManager.cs`) — port of Go `manager.go` reduced to run lifecycle. Pipeline executor is a delegate seam (`PipelineRunner(Run, Repo, CancellationToken)`) for slice 9. Run creation serializes per repo+branch (Go `branchLocks`), new push supersedes active same-branch run and waits for it (bounded 30s like Go). `HandleCancel` throws Go-shaped `no active run <id>`; `Shutdown` cancels all with bounded wait and refuses new runs.
+- **Cancel-cause emulation** — first cancel request records the reason (`NoMistakes.Core.RunCancelReason`: `cancelled: aborted by user` / `cancelled: superseded by new push` / `daemon shutting down`, byte-for-byte Go strings); on cancellation the run goes `cancelled` + reason, guarded on still-pending/running so the future executor is never overwritten. Runner exception mirrors Go panic recovery: `failed` + `internal panic: <msg>`.
+- **`RunInfoMapper`** — `runToInfo`/`stepToInfo` port. `AwaitingAgent` derived as `AwaitingAgentSince != null`; `Steps`/`FixSummaries` stay null when empty for Go omitempty wire parity; stats/fix-summary enrichment best-effort like Go's ignored errors.
+- **`RunIpcHandlers.Register`** — `get_run`/`get_runs`/`get_active_run`/`cancel_run` with Go-shaped error strings. Not wired into `DaemonHost` yet; NOTES tells 7e.2 to construct Database+RunManager there and add `push_received`.
+
+Tests: manager create/cancel/supersede/branch-isolation/shutdown/panic paths, `runinfo_test.go` port plus awaiting-agent derivation, and handlers exercised over a real unix socket including `cancel_run` driving a live manager.

@@ -2,11 +2,9 @@ namespace NoMistakes.Scm;
 
 /// <summary>
 /// Host extraction from git remote URLs, mirroring Go's
-/// <c>internal/scm.ExtractHost</c>. Internal for now: provider detection needs
-/// it; slice 6a.3 promotes it to the public helper surface alongside
-/// RepoSlug/ProjectPath.
+/// <c>internal/scm.ExtractHost</c>.
 /// </summary>
-internal static class RemoteHost
+public static class RemoteHost
 {
     /// <summary>
     /// Returns the lowercased host (without any port) from a git remote URL.
@@ -14,7 +12,7 @@ internal static class RemoteHost
     /// (https://host/group/project, ssh://git@host:22/group/project). Returns
     /// "" when no host can be determined.
     /// </summary>
-    internal static string ExtractHost(string remote)
+    public static string ExtractHost(string remote)
     {
         var s = remote.Trim();
         if (s.Length == 0)

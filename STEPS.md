@@ -8,7 +8,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the relocate
 - [x] **Slice 6a.2 — Provider detection and URL parsing.** Port provider detection and URL parsing for GitHub, GitLab, Bitbucket, and Azure DevOps, covering HTTPS, SSH, enterprise hosts, and subgroups. Tests cover HTTPS/SSH/enterprise/subgroup/malformed URLs for all four providers.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the four-provider URL-parsing tests passing.
 
-- [ ] **Slice 6a.3 — URL helpers: `ExtractHost`, `RepoSlug`, `ProjectPath`.** Port `ExtractHost`, `RepoSlug` (GitHub), and `ProjectPath` (GitLab, subgroups allowed) on top of the slice-6a.2 parsing. Tests cover each helper across provider and subgroup variants.
+- [x] **Slice 6a.3 — URL helpers: `ExtractHost`, `RepoSlug`, `ProjectPath`.** Port `ExtractHost`, `RepoSlug` (GitHub), and `ProjectPath` (GitLab, subgroups allowed) on top of the slice-6a.2 parsing. Tests cover each helper across provider and subgroup variants.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `ExtractHost`/`RepoSlug`/`ProjectPath` tests passing.
 
 - [ ] **Slice 6b.1 — GitHub and GitLab command wrappers and auth checks.** Port the GitHub (`gh`) and GitLab (`glab`) CLI command wrappers and auth checks in `NoMistakes.Scm`, preserving GitLab host-scoped auth (`glab auth status --hostname <host>`, falling back to the unscoped check when the host is unknown). Tests cover both providers' command/argument construction, the host-scoped auth arguments, and the unscoped fallback.

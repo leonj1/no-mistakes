@@ -62,3 +62,28 @@
   the config fallback; only the `api_host`/`git.example.com` cases exercise the
   glab-config path. Ported faithfully anyway.
 - Docker verification: 197 tests passed (185 baseline + 12 new).
+
+## Slice 6a.3
+
+- `RemoteHost.ExtractHost` promoted to `public` in place
+  (`dotnet/src/NoMistakes.Scm/RemoteHost.cs`) — no rename/move; this IS the
+  public helper surface for Go's `scm.ExtractHost`.
+- Provider helpers follow the AzureDevOps convention (static `RemoteUrl` class
+  per provider sub-namespace):
+  - `NoMistakes.Scm.GitHub.RemoteUrl.RepoSlug` (Go `github.RepoSlug`) at
+    `dotnet/src/NoMistakes.Scm/GitHub/RemoteUrl.cs`.
+  - `NoMistakes.Scm.GitLab.RemoteUrl.ProjectPath` (Go `gitlab.ProjectPath`,
+    subgroups + Windows-drive-path exclusion) at
+    `dotnet/src/NoMistakes.Scm/GitLab/RemoteUrl.cs`.
+  Three classes named `RemoteUrl` now exist (AzureDevOps/GitHub/GitLab);
+  consumers referencing more than one need using-aliases (see
+  `ScmUrlHelperTests.cs`).
+- GitLab `ProjectPath` URL branch uses `Uri.TryCreate` +
+  `Uri.UnescapeDataString(AbsolutePath)` to mirror Go's decoded `url.Parse`
+  path; malformed URLs yield "" like Go's parse-error branch.
+- Go's `github.HostPrefixedSlug` (GHE `host/owner/name` for gh `--repo`) NOT
+  ported yet — deferred to slice 6b.1, which builds the gh command wrapper
+  that consumes it.
+- Tests: `dotnet/tests/NoMistakes.Tests/ScmUrlHelperTests.cs` (xunit Theory
+  ports of Go `TestExtractHost`/`TestRepoSlug`/`TestProjectPath`).
+- Docker verification: 235 tests passed (197 baseline + 38 new).

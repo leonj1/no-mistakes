@@ -530,3 +530,41 @@
   TestGateNote_ReviewOnly, TestFindingsTally, TestTruncateDisclosesTotal,
   plus risk render, pr placement, FixRows, malformed-JSON degradation).
 - Docker verification: 319 tests passed (279 baseline + 40 new).
+
+## Slice 8b
+
+- Read-only axi commands are split in two layers: `AxiQuery` (pure document
+  builders over Database+Paths, fully deterministic under test — Home/Status/
+  Logs return `AxiOutput(Doc, ExitCode)`) and `CliApp.RunAxi` dispatch +
+  `AxiEnv` (environment: `Paths.New()`+EnsureDirs, `Database.Open`, cwd repo
+  lookup via `GitClient.FindGitRootAsync` with main-worktree fallback —
+  Go's openAxiEnv/findRepo read-only half). The ensure-daemon half of
+  openAxiEnv is NOT here — 8c.1's mutating commands add it.
+- `AxiOutput.Error(code, msg, help...)` is the emitError port: structured
+  TOON error on stdout + non-zero exit. Exit codes follow Go: 2 = usage/flag
+  validation (unknown step, missing --step, unknown flag), 1 = environment/
+  lookup failures (uninitialized repo, unknown --run id, unreadable log).
+  `AxiQuery.RepoInitHelp` appends the `no-mistakes init` hint only when the
+  error message contains "not initialized" — keep the `AxiEnv.FindRepoAsync`
+  message ("repo not initialized (run 'no-mistakes init' first)") in sync.
+- `axi logs` validates `--step` BEFORE opening any environment
+  (`ValidateLogsStep`, Go order); test
+  `AxiLogsValidatesStepBeforeTouchingAnyEnvironment` runs with no NM_HOME/repo
+  to pin that. "babysit" is rejected (StepName.All has no alias).
+- Flag parsing is `CliApp.ParseAxiFlags` (value flags + bool flags, cobra-ish
+  errors "unknown flag:"/"flag needs an argument:"). 8c should reuse/extend
+  it rather than add another loop.
+- Home constants: `RecentRunsHomeLimit` = 10, `LogTailLines` = 40,
+  `SkillDescription` (byte-for-byte skill description; slice 16b's generated
+  skill should absorb it). Home works daemon-down by design (reads only the
+  DB; daemon state comes from `DaemonStatus.IsRunningAsync`).
+- CLI e2e tests (`AxiQueryCliTests`) mutate NM_HOME AND process cwd
+  (`Directory.SetCurrentDirectory`) with save/restore — kept inside
+  `[Collection("daemon")]` per the 7e.2 rule. They register the repo under
+  the symlink-RESOLVED root from `FindGitRootAsync` (macOS /var vs
+  /private/var).
+- Log-line rows render via single-column tabular `log[N]{line}:` —
+  `LogRows` wraps each line in a one-field ToonObject because the 8a encoder
+  has no list-item encoding for bare strings containing arbitrary text; Go
+  emits the same shape.
+- Docker verification: 347 tests passed (319 baseline + 28 new).

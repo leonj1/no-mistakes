@@ -41,7 +41,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the notify-p
 - [x] **Slice 8a — TOON rendering.** Port TOON rendering with stable field order in `NoMistakes.Cli`: the run object, the gate object, and the findings table (including the `significance` column if merged). Tests assert output shape and field order.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the TOON output-shape/field-order tests passing.
 
-- [ ] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.
+- [x] **Slice 8b — Read-only `axi` commands.** Port the read-only `axi` commands: home, status, and logs, rendering via the slice-8a TOON layer. Tests cover each command's output against the rendered shapes.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the axi home/status/logs tests passing.
 
 - [ ] **Slice 8c.1 — `axi run` and `axi abort`.** Port the `axi run` and `axi abort` commands (worktree/branch-scoped abort; abort-by-id already landed in slice 7e). Tests cover run submission and scoped abort.

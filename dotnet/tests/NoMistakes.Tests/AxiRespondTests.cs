@@ -45,7 +45,9 @@ public sealed class AxiRespondTests
     /// A pipeline runner that parks its run at a review gate and resumes when
     /// the responder receives an action: skip marks the step skipped, any
     /// other action completes it, and the run completes. The stand-in for the
-    /// slice-9 executor's waitForApproval loop.
+    /// slice-9 executor's waitForApproval loop, including its step-mismatch
+    /// validation (the CLI passes --step through verbatim; the executor owns
+    /// rejecting a step that is not the one awaiting approval).
     /// </summary>
     private static (RunManager Manager, Task<RespondSeen> Seen) ParkedGateManager(Database db)
     {
@@ -56,8 +58,15 @@ public sealed class AxiRespondTests
             db.UpdateRunStatus(run.Id, RunStatus.Running);
             var step = db.InsertStepResult(run.Id, StepName.Review);
             db.SetStepFindings(step.Id, FindingsJson);
-            manager.RegisterResponder(run.Id,
-                (s, a, ids, instr, added) => seen.TrySetResult(new RespondSeen(s, a, ids, instr, added)));
+            manager.RegisterResponder(run.Id, (s, a, ids, instr, added) =>
+            {
+                if (s != StepName.Review)
+                {
+                    throw new InvalidOperationException(
+                        $"step mismatch: responding to \"{s}\" but \"{StepName.Review}\" is awaiting approval");
+                }
+                seen.TrySetResult(new RespondSeen(s, a, ids, instr, added));
+            });
             // Parked marker before the status flip, per the executor invariant.
             db.SetRunAwaitingAgent(run.Id);
             db.UpdateStepStatus(step.Id, StepStatus.AwaitingApproval);
@@ -68,6 +77,39 @@ public sealed class AxiRespondTests
             db.UpdateRunStatus(run.Id, RunStatus.Completed);
         });
         return (manager, seen.Task);
+    }
+
+    /// <summary>
+    /// A pipeline runner that parks two gates in sequence - review, then
+    /// test - so tests can observe whether the drive loop after `axi respond`
+    /// parks at the second gate (--yes defaults off) or auto-resolves it
+    /// (--yes).
+    /// </summary>
+    private static (RunManager Manager, Task<RespondSeen> Review, Task<RespondSeen> Test) TwoGateManager(Database db)
+    {
+        var review = new TaskCompletionSource<RespondSeen>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var test = new TaskCompletionSource<RespondSeen>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RunManager manager = null!;
+        manager = new RunManager(db, async (run, _, tok) =>
+        {
+            db.UpdateRunStatus(run.Id, RunStatus.Running);
+            manager.RegisterResponder(run.Id, (s, a, ids, instr, added) =>
+                (s == StepName.Review ? review : test).TrySetResult(new RespondSeen(s, a, ids, instr, added)));
+            foreach (var (name, gate) in new[] { (StepName.Review, review), (StepName.Test, test) })
+            {
+                var step = db.InsertStepResult(run.Id, name);
+                db.SetStepFindings(step.Id, FindingsJson);
+                // Parked marker before the status flip, per the executor invariant.
+                db.SetRunAwaitingAgent(run.Id);
+                db.UpdateStepStatus(step.Id, StepStatus.AwaitingApproval);
+                var response = await gate.Task.WaitAsync(tok);
+                db.ClearRunAwaitingAgent(run.Id);
+                db.UpdateStepStatus(step.Id,
+                    response.Action == ApprovalAction.Skip ? StepStatus.Skipped : StepStatus.Completed);
+            }
+            db.UpdateRunStatus(run.Id, RunStatus.Completed);
+        });
+        return (manager, review.Task, test.Task);
     }
 
     /// <summary>A working repo on a feature branch, registered in the DB.</summary>
@@ -334,6 +376,194 @@ public sealed class AxiRespondTests
             // Nothing reached the responder; the gate is still parked.
             Assert.False(seen.IsCompleted);
             Assert.NotNull(db.GetRun(runId)!.AwaitingAgentSince);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(savedCwd);
+            Environment.SetEnvironmentVariable("NM_HOME", savedHome);
+        }
+    }
+
+    /// <summary>
+    /// The --step flag targets the named parked step directly instead of the
+    /// AwaitingStep lookup, trimming whitespace like Go's runAxiRespond.
+    /// </summary>
+    [Fact]
+    public async Task RespondWithStepTargetsTheNamedParkedStep()
+    {
+        using var repoTmp = new TempDir();
+        using var homeTmp = new TempDir();
+        var paths = Paths.WithRoot(homeTmp.Path);
+        paths.EnsureDirs();
+        using var db = Database.Open(paths.Db);
+        var (root, repo) = await SetupRepoAsync(repoTmp, db);
+
+        var (manager, seen) = ParkedGateManager(db);
+        await using var host = await StartDaemonAsync(paths, db, manager);
+        var runId = await manager.StartRunAsync(repo, "feature", "headsha1", "basesha1");
+        await WaitForParkedAsync(db, runId);
+
+        var savedHome = Environment.GetEnvironmentVariable("NM_HOME");
+        var savedCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Environment.SetEnvironmentVariable("NM_HOME", homeTmp.Path);
+            Directory.SetCurrentDirectory(root);
+
+            var code = RunCli(
+                ["axi", "respond", "--action", "approve", "--step", " review "],
+                out var got, out _);
+            Assert.Equal(0, code);
+
+            var response = await seen.WaitAsync(Timeout);
+            Assert.Equal(StepName.Review, response.Step);
+            Assert.Equal(ApprovalAction.Approve, response.Action);
+
+            Assert.Contains("outcome: passed", got);
+            Assert.Equal(RunStatus.Completed, db.GetRun(runId)!.Status);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(savedCwd);
+            Environment.SetEnvironmentVariable("NM_HOME", savedHome);
+        }
+    }
+
+    /// <summary>
+    /// Targeting a step that is not the one awaiting approval is rejected by
+    /// the daemon-side executor (the CLI passes --step through verbatim) and
+    /// leaves the gate parked.
+    /// </summary>
+    [Fact]
+    public async Task RespondWithStepTargetingNonParkedStepErrorsAndLeavesGateParked()
+    {
+        using var repoTmp = new TempDir();
+        using var homeTmp = new TempDir();
+        var paths = Paths.WithRoot(homeTmp.Path);
+        paths.EnsureDirs();
+        using var db = Database.Open(paths.Db);
+        var (root, repo) = await SetupRepoAsync(repoTmp, db);
+
+        var (manager, seen) = ParkedGateManager(db);
+        await using var host = await StartDaemonAsync(paths, db, manager);
+        var runId = await manager.StartRunAsync(repo, "feature", "headsha1", "basesha1");
+        await WaitForParkedAsync(db, runId);
+
+        var savedHome = Environment.GetEnvironmentVariable("NM_HOME");
+        var savedCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Environment.SetEnvironmentVariable("NM_HOME", homeTmp.Path);
+            Directory.SetCurrentDirectory(root);
+
+            var code = RunCli(
+                ["axi", "respond", "--action", "approve", "--step", "test"],
+                out var got, out _);
+            Assert.Equal(1, code);
+            Assert.Contains("respond to test", got);
+            Assert.Contains("step mismatch", got);
+
+            // Nothing resolved the gate; the run is still parked at review.
+            Assert.False(seen.IsCompleted);
+            Assert.NotNull(db.GetRun(runId)!.AwaitingAgentSince);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(savedCwd);
+            Environment.SetEnvironmentVariable("NM_HOME", savedHome);
+        }
+    }
+
+    /// <summary>
+    /// The --yes default is off: after resolving the review gate, the drive
+    /// loop parks at the next gate and reports it instead of auto-resolving.
+    /// </summary>
+    [Fact]
+    public async Task RespondWithoutYesParksAtTheNextGate()
+    {
+        using var repoTmp = new TempDir();
+        using var homeTmp = new TempDir();
+        var paths = Paths.WithRoot(homeTmp.Path);
+        paths.EnsureDirs();
+        using var db = Database.Open(paths.Db);
+        var (root, repo) = await SetupRepoAsync(repoTmp, db);
+
+        var (manager, reviewSeen, testSeen) = TwoGateManager(db);
+        await using var host = await StartDaemonAsync(paths, db, manager);
+        var runId = await manager.StartRunAsync(repo, "feature", "headsha1", "basesha1");
+        await WaitForParkedAsync(db, runId);
+
+        var savedHome = Environment.GetEnvironmentVariable("NM_HOME");
+        var savedCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Environment.SetEnvironmentVariable("NM_HOME", homeTmp.Path);
+            Directory.SetCurrentDirectory(root);
+
+            var code = RunCli(["axi", "respond", "--action", "approve"], out var got, out _);
+            Assert.Equal(0, code);
+
+            var response = await reviewSeen.WaitAsync(Timeout);
+            Assert.Equal(StepName.Review, response.Step);
+            Assert.Equal(ApprovalAction.Approve, response.Action);
+
+            // The drive loop stopped at the test gate instead of resolving it.
+            Assert.Contains($"step: {StepName.Test}", got);
+            Assert.Contains(StepStatus.AwaitingApproval, got);
+            Assert.DoesNotContain("outcome: passed", got);
+            Assert.False(testSeen.IsCompleted);
+            Assert.Equal(RunStatus.Running, db.GetRun(runId)!.Status);
+            Assert.NotNull(db.GetRun(runId)!.AwaitingAgentSince);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(savedCwd);
+            Environment.SetEnvironmentVariable("NM_HOME", savedHome);
+        }
+    }
+
+    /// <summary>
+    /// With --yes the drive loop after the respond auto-resolves the next
+    /// gate: the test gate's actionable findings are sent back as a fix with
+    /// every finding selected, and the run drives to its outcome.
+    /// </summary>
+    [Fact]
+    public async Task RespondWithYesAutoResolvesSubsequentGates()
+    {
+        using var repoTmp = new TempDir();
+        using var homeTmp = new TempDir();
+        var paths = Paths.WithRoot(homeTmp.Path);
+        paths.EnsureDirs();
+        using var db = Database.Open(paths.Db);
+        var (root, repo) = await SetupRepoAsync(repoTmp, db);
+
+        var (manager, reviewSeen, testSeen) = TwoGateManager(db);
+        await using var host = await StartDaemonAsync(paths, db, manager);
+        var runId = await manager.StartRunAsync(repo, "feature", "headsha1", "basesha1");
+        await WaitForParkedAsync(db, runId);
+
+        var savedHome = Environment.GetEnvironmentVariable("NM_HOME");
+        var savedCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Environment.SetEnvironmentVariable("NM_HOME", homeTmp.Path);
+            Directory.SetCurrentDirectory(root);
+
+            var code = RunCli(["axi", "respond", "--action", "approve", "--yes"], out var got, out _);
+            Assert.Equal(0, code);
+
+            var review = await reviewSeen.WaitAsync(Timeout);
+            Assert.Equal(ApprovalAction.Approve, review.Action);
+
+            // The drive loop answered the test gate itself: fix with every
+            // actionable finding selected (gateResolution).
+            var test = await testSeen.WaitAsync(Timeout);
+            Assert.Equal(StepName.Test, test.Step);
+            Assert.Equal(ApprovalAction.Fix, test.Action);
+            Assert.Equal(new List<string> { "f1" }, test.FindingIds);
+
+            Assert.Contains("outcome: passed", got);
+            Assert.Equal(RunStatus.Completed, db.GetRun(runId)!.Status);
         }
         finally
         {

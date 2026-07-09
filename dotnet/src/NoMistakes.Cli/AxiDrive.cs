@@ -10,8 +10,7 @@ namespace NoMistakes.Cli;
 /// current branch and drive it to a decision point or outcome), `axi respond`
 /// (answer the current approval gate and continue), and the worktree/branch-
 /// scoped `axi abort`. Ports Go's internal/cli/axi_drive.go (runAxiRun,
-/// driveRun, renderDriveResult, runAxiRespond, runAxiAbort); respond's
-/// --step targeting and --yes arrive in slice 8c.2c.
+/// driveRun, renderDriveResult, runAxiRespond, runAxiAbort).
 /// </summary>
 public static class AxiDrive
 {
@@ -629,20 +628,24 @@ public static class AxiDrive
 
     /// <summary>
     /// The `axi respond` operation over an already-opened daemon-connected
-    /// env: sends the approve/fix/skip action for the step currently awaiting
-    /// approval - for fix, carrying the selected finding IDs, the per-finding
-    /// instructions note, and any added finding - then blocks until the next
-    /// gate, CI-ready decision point, or final outcome. Ports Go's
-    /// runAxiRespond without --step/--yes (8c.2c); callers validate the
-    /// action with <see cref="ValidateRespondAction"/> first.
+    /// env: sends the approve/fix/skip action for the step awaiting approval
+    /// (or the --step override; the daemon-side executor validates that the
+    /// named step is actually parked) - for fix, carrying the selected
+    /// finding IDs, the per-finding instructions note, and any added finding
+    /// - then blocks until the next gate, CI-ready decision point, or final
+    /// outcome, auto-resolving subsequent gates when autoYes is set. Ports
+    /// Go's runAxiRespond; callers validate the action with
+    /// <see cref="ValidateRespondAction"/> first.
     /// </summary>
     public static async Task<AxiOutput> RespondAsync(
         AxiEnv env,
         TextWriter? progress,
         string action,
+        string step = "",
         string findings = "",
         string instructions = "",
         string addFinding = "",
+        bool autoYes = false,
         Func<string, bool>? ciChecksPassed = null,
         CancellationToken ct = default)
     {
@@ -692,12 +695,19 @@ public static class AxiDrive
         }
         var rv = RunView.FromIpc(run);
 
-        if (rv.AwaitingStep() is not { } gate)
+        // Go resolves the awaiting step (and its no-gate error) only when
+        // --step is empty; an explicit --step skips the lookup and lets the
+        // daemon-side executor validate that the step is actually parked.
+        var stepName = step.Trim();
+        if (stepName.Length == 0)
         {
-            return AxiOutput.Error(1, "no step is awaiting approval",
-                "Run `no-mistakes axi status` to see the run state");
+            if (rv.AwaitingStep() is not { } gate)
+            {
+                return AxiOutput.Error(1, "no step is awaiting approval",
+                    "Run `no-mistakes axi status` to see the run state");
+            }
+            stepName = gate.Name;
         }
-        var stepName = gate.Name;
 
         // Go computes the finding IDs for every action; instructions and the
         // added finding apply only to fix.
@@ -763,7 +773,7 @@ public static class AxiDrive
         bool ciReady;
         try
         {
-            (final, ciReady) = await DriveRunAsync(client, progress, runId, autoApprove: false, ciChecksPassed, ct)
+            (final, ciReady) = await DriveRunAsync(client, progress, runId, autoApprove: autoYes, ciChecksPassed, ct)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

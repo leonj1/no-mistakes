@@ -238,23 +238,33 @@ public sealed class CliApp
     }
 
     /// <summary>
-    /// The `axi respond` command: answer the current approval gate with
-    /// approve/fix/skip and continue driving the run - fix selecting findings
-    /// via --findings/--instructions/--add-finding. Ports Go's
-    /// newAxiRespondCmd; --step/--yes arrive in slice 8c.2c.
+    /// The `axi respond` command: answer the current approval gate (or the
+    /// one named by --step) with approve/fix/skip and continue driving the
+    /// run - fix selecting findings via --findings/--instructions/
+    /// --add-finding, --yes auto-resolving every subsequent gate. Ports Go's
+    /// newAxiRespondCmd.
     /// </summary>
     private int RunAxiRespond(IReadOnlyList<string> args)
     {
-        string action = "", findings = "", instructions = "", addFinding = "";
+        string action = "", step = "", findings = "", instructions = "", addFinding = "";
+        var autoYes = false;
         try
         {
-            ParseAxiFlags(args, new Dictionary<string, Action<string>>
-            {
-                ["--action"] = v => action = v,
-                ["--findings"] = v => findings = v,
-                ["--instructions"] = v => instructions = v,
-                ["--add-finding"] = v => addFinding = v,
-            });
+            ParseAxiFlags(
+                args,
+                new Dictionary<string, Action<string>>
+                {
+                    ["--action"] = v => action = v,
+                    ["--step"] = v => step = v,
+                    ["--findings"] = v => findings = v,
+                    ["--instructions"] = v => instructions = v,
+                    ["--add-finding"] = v => addFinding = v,
+                },
+                new Dictionary<string, Action>
+                {
+                    ["--yes"] = () => autoYes = true,
+                    ["-y"] = () => autoYes = true,
+                });
         }
         catch (ArgumentException ex)
         {
@@ -278,7 +288,7 @@ public sealed class CliApp
         }
         using (env)
         {
-            return Emit(AxiDrive.RespondAsync(env, stderr, action, findings, instructions, addFinding)
+            return Emit(AxiDrive.RespondAsync(env, stderr, action, step, findings, instructions, addFinding, autoYes)
                 .GetAwaiter().GetResult());
         }
     }

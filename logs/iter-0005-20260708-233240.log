@@ -1,0 +1,7 @@
+Slice 6a.3 done. Commit `a694ae1`.
+
+- `RemoteHost.ExtractHost` now public (was internal from 6a.2; kept in place, no rename).
+- New `NoMistakes.Scm.GitHub.RemoteUrl.RepoSlug` and `NoMistakes.Scm.GitLab.RemoteUrl.ProjectPath` — follow AzureDevOps `RemoteUrl` static-class convention. ProjectPath keeps subgroup support plus Windows drive-path exclusion; URL branch mirrors Go `url.Parse` via `Uri.TryCreate` + unescape.
+- Tests: `ScmUrlHelperTests.cs` ports Go's `TestExtractHost` (13 cases), `TestRepoSlug` (12), `TestProjectPath` (13).
+- Acceptance: `docker build -f Dockerfile.test.dotnet .` green — 235 passed, 0 failed (197 baseline + 38 new).
+- STEPS.md marked `[x]`; NOTES.md records convention, `RemoteUrl` name collision needing using-aliases, and that `HostPrefixedSlug` was deferred to 6b.1 (gh wrapper consumes it).

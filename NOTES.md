@@ -402,3 +402,36 @@
   `Ready` resolves). Existing 7b lifecycle tests construct `DaemonHost(paths)`
   without a db and are unaffected.
 - Docker verification: 256 tests passed (253 baseline + 3 new).
+
+## Slice 7e.1
+
+- IPC client landed: `NoMistakes.Ipc.IpcClient` (`Client.cs`) — `DialAsync(socketPath)`
+  (throws `IOException` "dial ipc: ..." when nothing listening) +
+  `CallAsync<TResult>(method, params, ct)`. Server-side JSON-RPC errors surface
+  as `IpcRpcException` (carries `Code`; `Message` is the raw server error text,
+  matching Go `*RPCError.Error()` — callers substring-match on it like Go).
+  Per-call 30s response timeout (`CallTimeout`, internal-settable) mirrors Go's
+  read deadline. Calls on one connection serialized via `SemaphoreSlim`.
+  `Subscribe` NOT ported — arrives with event streaming.
+- Daemon liveness: `NoMistakes.Daemon.DaemonStatus.IsRunningAsync(Paths)` —
+  dial + health "ok"; any dial/call failure (incl. stale socket file left by a
+  crash) reads as not running. Ports Go `daemon.IsRunning`/`daemonIsRunningViaIPC`.
+- Abort-by-id op: `NoMistakes.Cli.AxiAbort.AbortByRunIdAsync(Paths, runId)`
+  returning record `AxiAbortOutcome(Aborted, RunId, Detail)`. `Detail` non-null
+  exactly on the no-op paths, carrying Go's literal detail strings
+  ("daemon not running, so no active run to cancel (no-op)" /
+  "no active run with that id (no-op)"). No TOON render here — slice 8a/8c.1
+  wires the command surface + rendering over this op (8c.1's "abort-by-id
+  already landed in slice 7e" refers to this). Other IPC failures propagate as
+  exceptions for the future emitError layer.
+- `NoMistakes.Cli.csproj` now references `NoMistakes.Daemon` + `NoMistakes.Ipc`
+  (first non-Core refs on the Cli project; slice 8 builds on these).
+- Unknown/inactive-run distinction lives in the RPC error string: daemon-side
+  `RunManager.HandleCancel` throws "no active run <id>" (per the slice-7c
+  design note); the CLI layer maps it to the idempotent no-op. Keep that
+  message stable or the substring match breaks.
+- Tests: `AxiAbortByRunIdTests.cs`, `[Collection("daemon")]` (serialized with
+  the other daemon-socket tests). Harness starts a real `DaemonHost` with
+  `RunIpcHandlers.Register` — order matters: start the daemon BEFORE
+  `StartRunAsync`, else startup `RecoverStaleRuns` fails the fresh run.
+- Docker verification: 261 tests passed (256 baseline + 5 new).

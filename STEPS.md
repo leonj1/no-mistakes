@@ -32,7 +32,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with run-manager 
 - [x] **Slice 7d — Stale-run recovery.** Port `RecoverStaleRuns`: clears awaiting-agent and fails stale runs plus their steps in one transaction. Tests cover the transactional recovery and that a recovered run is never reported as parked.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the stale-run-recovery tests passing.
 
-- [ ] **Slice 7e.1 — Abort-by-id.** Port `axi abort --run <id>` working outside a worktree (needs only `NM_HOME` plus the daemon), with unknown/inactive targets and a stopped daemon as idempotent no-ops (`aborted: false`). Tests cover abort-by-id success and each no-op case (unknown id, inactive run, stopped daemon).
+- [x] **Slice 7e.1 — Abort-by-id.** Port `axi abort --run <id>` working outside a worktree (needs only `NM_HOME` plus the daemon), with unknown/inactive targets and a stopped daemon as idempotent no-ops (`aborted: false`). Tests cover abort-by-id success and each no-op case (unknown id, inactive run, stopped daemon).
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the abort-by-id success and no-op tests passing.
 
 - [ ] **Slice 7e.2 — `notify-push` wiring.** Wire in the slice-4 `notify-push` hook command invoked by the post-receive hook, routed over the slice-7a IPC surface to the daemon. Tests cover the hook invocation reaching the daemon. Mark slice 7 Done in `VERTICAL_SLICES.md` and open the PR.

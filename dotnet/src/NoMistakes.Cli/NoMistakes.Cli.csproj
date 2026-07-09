@@ -6,5 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NoMistakes.Core\NoMistakes.Core.csproj" />
+    <ProjectReference Include="..\NoMistakes.Daemon\NoMistakes.Daemon.csproj" />
+    <ProjectReference Include="..\NoMistakes.Ipc\NoMistakes.Ipc.csproj" />
   </ItemGroup>
 </Project>

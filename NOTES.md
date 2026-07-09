@@ -264,3 +264,58 @@
   round trips, error response, pipelined framing, subscribe event stream,
   oversized-message rejection, mid-message EOF). Docker verification:
   212 tests passed (185 main baseline + 27 new).
+
+## Slice 7b
+
+- IPC server lives in `NoMistakes.Ipc` (`Server.cs`, class `IpcServer`),
+  porting Go `internal/ipc/server.go` + the unix `listen()` transport:
+  stale socket file deleted before bind, socket file chmod 0700 after bind
+  (Go's umask 0o077). Windows named-pipe transport NOT ported (unix domain
+  sockets only; slice 17e Windows parity). Surface: delegates
+  `IpcHandler`/`IpcStreamHandler` (`JsonElement?` params, like the 7a
+  protocol), `Handle`/`HandleStream`, `ServeAsync(socketPath)` (blocks until
+  `Close()`, drains in-flight connections), `CloseListener()` (Go parity),
+  and `Task Listening` — completes once bound/accepting, faults on bind
+  failure. Later slices (7c+) register handlers before `RunAsync`.
+- Dispatch semantics kept from Go: unknown method →
+  `method not found: <m>` (`ErrorCodes.MethodNotFound`); handler exception →
+  `ErrorCodes.Internal` with `ex.Message`; malformed JSON line →
+  ParseError response with id 0 and the connection keeps reading; stream
+  handlers get an initial `{ok:true}` response then own the connection,
+  which closes when they return. Responses are deliberately written WITHOUT
+  the shutdown token so the shutdown method's own OK reaches the client
+  before teardown (Go's goroutine trick, made deterministic).
+- `NoMistakes.Daemon` project (`dotnet/src/NoMistakes.Daemon/`), sln GUID
+  `{8C2F4E6B-1D3A-4B5C-9E7F-3A1B2C4D5E6F}`, nested under `src`, refs Core +
+  Ipc. Class is `DaemonHost` (NOT `Daemon` — a type named like its own
+  namespace makes C# resolve the bare name to the namespace and breaks
+  every unqualified use). `RunAsync()` = Go `RunWithOptions` reduced to
+  lifecycle: EnsureDirs, registers health+shutdown handlers, writes PID
+  file, serves on `Paths.Socket`, exposes `ServerPidsDir` from Paths (Go's
+  `agent.SetServerPIDsDir` hook-up waits for the agent slice 14).
+  `Task Ready` completes when accepting + PID file written; `Shutdown()`
+  idempotent.
+- PID file: `DaemonPidRecord` (`pid`/`started_at` JSON; `started_at`
+  omitted when null). `Parse` accepts the legacy plain-integer file and
+  rejects non-positive PIDs (`FormatException`), mirroring
+  `readDaemonPIDFileData`. `Write` is atomic (same-dir temp + rename,
+  0644); internal static `Rename` hook is swappable for the
+  rename-failure test — tests that touch it share xunit collection
+  "daemon" with the lifecycle tests to avoid cross-class parallel races.
+  Cleanup invariant kept from Go: on exit the PID file (and socket) are
+  removed only if the exiting daemon still owns the PID file
+  (`SameOwner`: pid + started_at instant equality).
+- Gotcha: .NET unlinks a bound unix-domain socket file on listener dispose
+  (same as Go `net.UnixListener` unlink-on-close), so don't write tests
+  asserting the socket FILE survives a foreign-owner shutdown — only PID
+  ownership is asserted (`StoppingDaemonKeepsPidFileOwnedByReplacementDaemon`).
+- Not ported here (later slices): signal handling, config/log-level load,
+  telemetry, `prepareDaemonEnvironment`, recovery (`RecoverStaleRuns` 7d,
+  `reapOrphanedServers`/`migrateGateConfigs` later), run manager (7c),
+  and all run-related IPC handlers.
+- Tests: `DaemonLifecycleTests.cs` (start serves health over the socket +
+  PID written, shutdown via IPC and via method removing artifacts, stale
+  socket replaced, foreign PID file preserved, method-not-found, bind
+  failure faults `Ready` and leaves no PID file) and
+  `DaemonPidRecordTests.cs`. Docker verification: 232 tests passed
+  (212 baseline + 20 new).

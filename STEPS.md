@@ -23,7 +23,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the PR/MR-lo
 - [x] **Slice 7a — Scaffold `NoMistakes.Ipc`; IPC protocol.** Scaffold the `NoMistakes.Ipc` project and port the IPC request/response protocol, including the `CancelRun` and `notify-push` message types, with serialization round-trip tests over a socket pair.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with IPC request/response round-trip tests passing.
 
-- [ ] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.
+- [x] **Slice 7b — Scaffold `NoMistakes.Daemon`; daemon startup/shutdown.** Scaffold the `NoMistakes.Daemon` project and port daemon startup and shutdown: socket creation, PID file, and server-PID location from `Paths`. Tests cover start, stop, and PID-file lifecycle.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with daemon start/stop tests passing.
 
 - [ ] **Slice 7c — Run manager.** Port the run manager: run creation, `HandleCancel`, run status, and `runToInfo` including the awaiting-agent fields. Tests cover run create, cancel, and status/info mapping.

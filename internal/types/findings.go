@@ -19,10 +19,23 @@ const (
 	FindingSourceUser  = "user"
 )
 
+// Finding significance constants. Significance is an axis independent of
+// Severity: Severity (error/warning/info) captures merge-blocking weight,
+// while Significance (high/medium/low) captures how much a human or agent
+// should prioritize looking at the finding. A warning can still be
+// high-significance. An empty/unrecognized value ranks below "low" so it is
+// only included by an unfiltered read.
+const (
+	SignificanceHigh   = "high"
+	SignificanceMedium = "medium"
+	SignificanceLow    = "low"
+)
+
 // Finding represents a single review, test, lint, or PR comment finding.
 type Finding struct {
 	ID               string `json:"id,omitempty"`
 	Severity         string `json:"severity"`
+	Significance     string `json:"significance,omitempty"`
 	File             string `json:"file,omitempty"`
 	Line             int    `json:"line,omitempty"`
 	Description      string `json:"description"`
@@ -43,6 +56,7 @@ type TestArtifact struct {
 type findingWire struct {
 	ID                  string `json:"id,omitempty"`
 	Severity            string `json:"severity"`
+	Significance        string `json:"significance,omitempty"`
 	File                string `json:"file,omitempty"`
 	Line                int    `json:"line,omitempty"`
 	Description         string `json:"description"`
@@ -132,6 +146,40 @@ func ExcludeFindings(findings Findings, ids []string) Findings {
 	result := Findings{Summary: findings.Summary, Tested: findings.Tested, TestingSummary: findings.TestingSummary, Artifacts: findings.Artifacts, RiskLevel: findings.RiskLevel, RiskRationale: findings.RiskRationale}
 	for _, item := range findings.Items {
 		if !excluded[item.ID] {
+			result.Items = append(result.Items, item)
+		}
+	}
+	return result
+}
+
+// SignificanceRank maps a significance label to an ordinal for threshold
+// comparison: high=3, medium=2, low=1. An empty or unrecognized value ranks 0
+// (below "low"), so legacy findings written before significance existed are
+// only surfaced by an unfiltered read. Comparison is case-insensitive.
+func SignificanceRank(s string) int {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case SignificanceHigh:
+		return 3
+	case SignificanceMedium:
+		return 2
+	case SignificanceLow:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// FilterFindingsByMinSignificance keeps only findings whose significance ranks
+// at or above min. An empty min is a no-op that returns findings unchanged, so
+// callers can pass through an unset flag. All non-item fields are preserved.
+func FilterFindingsByMinSignificance(findings Findings, min string) Findings {
+	if strings.TrimSpace(min) == "" {
+		return findings
+	}
+	threshold := SignificanceRank(min)
+	result := Findings{Summary: findings.Summary, Tested: findings.Tested, TestingSummary: findings.TestingSummary, Artifacts: findings.Artifacts, RiskLevel: findings.RiskLevel, RiskRationale: findings.RiskRationale}
+	for _, item := range findings.Items {
+		if SignificanceRank(item.Significance) >= threshold {
 			result.Items = append(result.Items, item)
 		}
 	}
@@ -297,6 +345,7 @@ func (f *Finding) UnmarshalJSON(data []byte) error {
 	}
 	f.ID = wire.ID
 	f.Severity = wire.Severity
+	f.Significance = wire.Significance
 	f.File = wire.File
 	f.Line = wire.Line
 	f.Description = wire.Description

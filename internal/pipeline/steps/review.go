@@ -156,6 +156,7 @@ Task:
 Rules:
 - Anchor every finding to a specific file and one-indexed line number in the changed code when possible.
 - Use severity "error" for problems that should absolutely not get merged, "warning" for things that are worth addressing but can be done in a follow up, and "info" for things that are nice to have.
+- Set significance for every finding to "high", "medium", or "low". Significance is an axis INDEPENDENT of severity: severity captures whether the finding should block merge, while significance captures how much a human or agent should prioritize looking at it. Use "high" for findings a reviewer must not overlook (correctness or security issues with real impact, data loss, broken core behavior), "medium" for findings worth attention but not urgent, and "low" for minor or cosmetic-adjacent concerns. A "warning"-severity finding can still be "high" significance, and an "error"-severity finding can be "low" significance if its blast radius is tiny.
 - Be concise and actionable. No generic advice like "add more tests".
 - Only comment on things that genuinely matter.
 - Do NOT report styling, formatting, linting, compilation, or type-checking issues.
@@ -217,6 +218,7 @@ func sanitizedPreviousFindingsForPrompt(raw string) string {
 	for i := range findings.Items {
 		findings.Items[i].ID = sanitizePromptText(findings.Items[i].ID)
 		findings.Items[i].Severity = sanitizePromptText(findings.Items[i].Severity)
+		findings.Items[i].Significance = sanitizePromptText(findings.Items[i].Significance)
 		findings.Items[i].File = sanitizePromptText(findings.Items[i].File)
 		findings.Items[i].Description = sanitizePromptMultilineText(findings.Items[i].Description)
 		findings.Items[i].Source = sanitizePromptText(findings.Items[i].Source)

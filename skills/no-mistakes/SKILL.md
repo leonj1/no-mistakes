@@ -225,6 +225,7 @@ run without checking back.
 ```sh
 no-mistakes axi               # home view: current branch, active runs, next steps
 no-mistakes axi status        # full detail of the resolved run
+no-mistakes axi status --min-significance high   # only high-significance findings across all steps
 no-mistakes axi logs --step <name> --full   # full log output of one step
 no-mistakes axi abort         # cancel the current-branch active run
 no-mistakes axi abort --run <id>   # cancel a specific run by id (works outside its worktree)

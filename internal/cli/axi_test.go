@@ -64,6 +64,59 @@ func TestFindingsTally(t *testing.T) {
 	}
 }
 
+func TestSignificantFindingRows_FiltersByThreshold(t *testing.T) {
+	rv := runView{Steps: []stepView{
+		{Name: "review", FindingsJSON: findingsJSON(t, []types.Finding{
+			{ID: "r1", Severity: "error", Significance: "high", Description: "big"},
+			{ID: "r2", Severity: "warning", Significance: "medium", Description: "mid"},
+			{ID: "r3", Severity: "info", Significance: "low", Description: "small"},
+		}, "review")},
+	}}
+
+	high := rv.significantFindingRows("high")
+	if len(high) != 1 || high[0].ID != "r1" {
+		t.Fatalf("min=high got %+v, want [r1]", high)
+	}
+	if high[0].Step != "review" || high[0].Significance != "high" {
+		t.Errorf("row = %+v, want step=review significance=high", high[0])
+	}
+
+	med := rv.significantFindingRows("medium")
+	if len(med) != 2 {
+		t.Fatalf("min=medium got %d rows, want 2", len(med))
+	}
+}
+
+func TestSignificantFindingRows_FailedStepSynthesizesHigh(t *testing.T) {
+	rv := runView{Steps: []stepView{
+		{Name: "test", Status: string(types.StepStatusFailed)},
+	}}
+	rows := rv.significantFindingRows("high")
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1 synthetic", len(rows))
+	}
+	if rows[0].Step != "test" || rows[0].Significance != types.SignificanceHigh {
+		t.Errorf("synthetic row = %+v, want step=test significance=high", rows[0])
+	}
+	if rows[0].ID != "test-failed" {
+		t.Errorf("synthetic id = %q, want test-failed", rows[0].ID)
+	}
+}
+
+func TestSignificantFindingRows_FailedStepWithFindingsNoSynthetic(t *testing.T) {
+	// A failed step that already has structured findings should not also get a
+	// synthetic placeholder.
+	rv := runView{Steps: []stepView{
+		{Name: "review", Status: string(types.StepStatusFailed), FindingsJSON: findingsJSON(t, []types.Finding{
+			{ID: "r1", Significance: "high", Description: "real"},
+		}, "review")},
+	}}
+	rows := rv.significantFindingRows("high")
+	if len(rows) != 1 || rows[0].ID != "r1" {
+		t.Fatalf("got %+v, want only the real finding r1", rows)
+	}
+}
+
 func TestTruncateDisclosesTotal(t *testing.T) {
 	short := truncate("hello", 100)
 	if short != "hello" {
@@ -178,7 +231,7 @@ func TestWriteGateShape(t *testing.T) {
 		Name:   "review",
 		Status: "awaiting_approval",
 		FindingsJSON: findingsJSON(t, []types.Finding{
-			{ID: "review-1", Severity: "warning", File: "main.go", Line: 4, Action: types.ActionAskUser, Description: "calls os.Exit, leaks fd"},
+			{ID: "review-1", Severity: "warning", Significance: "high", File: "main.go", Line: 4, Action: types.ActionAskUser, Description: "calls os.Exit, leaks fd"},
 		}, "1 blocking issue"),
 	}
 	out := axiDoc(gateFields(gate)...)
@@ -188,8 +241,8 @@ func TestWriteGateShape(t *testing.T) {
 		"  step: review\n",
 		"  status: awaiting_approval\n",
 		"  summary: 1 blocking issue\n",
-		"  findings[1]{id,severity,file,action,description}:\n",
-		`    review-1,warning,main.go,ask-user,"calls os.Exit, leaks fd"`,
+		"  findings[1]{id,severity,significance,file,action,description}:\n",
+		`    review-1,warning,high,main.go,ask-user,"calls os.Exit, leaks fd"`,
 		"no-mistakes axi respond --action approve",
 		"to have the pipeline fix the selected findings (do not edit files yourself)",
 		// Review gate carries the auto-fix-disabled note and the keep-driving

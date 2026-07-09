@@ -24,6 +24,7 @@ const logTailLines = 40
 
 func newAxiStatusCmd() *cobra.Command {
 	var runID string
+	var minSignificance string
 	cmd := &cobra.Command{
 		Use:           "status",
 		Short:         "Show the active (or most recent) run in detail",
@@ -32,17 +33,19 @@ func newAxiStatusCmd() *cobra.Command {
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return trackAxiSurface("axi-status", "/axi/status", telemetry.Fields{
-				"explicit_run_id": strings.TrimSpace(runID) != "",
+				"explicit_run_id":  strings.TrimSpace(runID) != "",
+				"min_significance": strings.TrimSpace(minSignificance) != "",
 			}, func() error {
-				return runAxiStatus(cmd, runID)
+				return runAxiStatus(cmd, runID, minSignificance)
 			})
 		},
 	}
 	cmd.Flags().StringVar(&runID, "run", "", "inspect a specific run ID (default: active or most recent)")
+	cmd.Flags().StringVar(&minSignificance, "min-significance", "", "show only findings at or above this significance: high, medium, or low (across all steps)")
 	return cmd
 }
 
-func runAxiStatus(cmd *cobra.Command, runID string) error {
+func runAxiStatus(cmd *cobra.Command, runID, minSignificance string) error {
 	env, err := openAxiEnv(false)
 	if err != nil {
 		return emitError(cmd, 1, err.Error(), repoInitHelp(err)...)
@@ -65,11 +68,33 @@ func runAxiStatus(cmd *cobra.Command, runID string) error {
 		return nil
 	}
 
+	minSignificance = strings.TrimSpace(minSignificance)
+	if minSignificance != "" && types.SignificanceRank(minSignificance) == 0 {
+		return emitError(cmd, 2, fmt.Sprintf("invalid --min-significance %q", minSignificance),
+			"Valid values: high, medium, low")
+	}
+
 	steps, err := env.d.GetStepsByRun(run.ID)
 	if err != nil {
 		return emitError(cmd, 1, fmt.Sprintf("load steps: %v", err))
 	}
 	rv := runViewFromDB(run, steps)
+
+	if minSignificance != "" {
+		rows := rv.significantFindingRows(minSignificance)
+		fields := []toon.Field{
+			runObjectField(rv),
+			{Key: "min_significance", Value: minSignificance},
+		}
+		if len(rows) == 0 {
+			fields = append(fields, toon.Field{Key: "findings", Value: fmt.Sprintf("no findings at or above %q significance", minSignificance)})
+		} else {
+			fields = append(fields, toon.Field{Key: "findings", Value: rows})
+		}
+		emitDoc(cmd, fields...)
+		return nil
+	}
+
 	fields := []toon.Field{runObjectField(rv)}
 	if gate, ok := rv.awaitingStep(); ok {
 		fields = append(fields, gateFields(gate)...)

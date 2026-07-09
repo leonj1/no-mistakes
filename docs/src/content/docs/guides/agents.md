@@ -125,11 +125,23 @@ Agents can also call `no-mistakes axi` directly:
 ```sh
 no-mistakes axi run --intent "the user's goal"
 no-mistakes axi status
+no-mistakes axi status --min-significance high
 no-mistakes axi respond --action approve
 no-mistakes axi logs --step review --full
 no-mistakes axi abort
 no-mistakes axi abort --run <id>
 ```
+
+Each review finding carries a `significance` of `high`, `medium`, or `low` — an
+axis independent of `severity` (which captures merge-blocking weight). To pull
+only the findings worth attention and skip the noise, pass
+`no-mistakes axi status --min-significance high` (or `medium`/`low`). It prints a
+flat, step-tagged `findings` table containing only findings at or above the
+given significance across every step, so a tool can target the most significant
+issues without parsing full logs. A failed step that produced no structured
+findings (for example the test step, whose detail lives in its log) is surfaced
+as one synthetic high-significance row so a single filtered read shows
+everything blocking.
 
 Before starting validation, agents should run the `no-mistakes axi` home view.
 If it shows `active_run`, inspect that current-branch run with `no-mistakes axi status`.

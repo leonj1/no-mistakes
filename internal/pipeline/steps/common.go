@@ -24,6 +24,7 @@ var findingsSchema = json.RawMessage(`{
 				"properties": {
 					"id": {"type": "string"},
 					"severity": {"type": "string", "enum": ["error", "warning", "info"]},
+					"significance": {"type": "string", "enum": ["high", "medium", "low"]},
 					"file": {"type": "string"},
 					"line": {"type": "integer"},
 					"description": {"type": "string"},
@@ -54,6 +55,7 @@ var testFindingsSchema = json.RawMessage(`{
 				"properties": {
 					"id": {"type": "string"},
 					"severity": {"type": "string", "enum": ["error", "warning", "info"]},
+					"significance": {"type": "string", "enum": ["high", "medium", "low"]},
 					"file": {"type": "string"},
 					"line": {"type": "integer"},
 					"description": {"type": "string"},
@@ -100,12 +102,13 @@ var reviewFindingsSchema = json.RawMessage(`{
 				"properties": {
 					"id": {"type": "string"},
 					"severity": {"type": "string", "enum": ["error", "warning", "info"]},
+					"significance": {"type": "string", "enum": ["high", "medium", "low"]},
 					"file": {"type": "string"},
 					"line": {"type": "integer"},
 					"description": {"type": "string"},
 					"action": {"type": "string", "enum": ["no-op", "auto-fix", "ask-user"]}
 				},
-				"required": ["severity", "description", "action"]
+				"required": ["severity", "significance", "description", "action"]
 			}
 		},
 		"tested": {

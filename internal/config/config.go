@@ -403,7 +403,7 @@ func (c *Config) resolveAutoAgent(ctx context.Context, lookPath func(string) (st
 			}
 		}
 		probed = append(probed, bin)
-		resolvedBin, err := lookPath(bin)
+		_, err := lookPath(bin)
 		if err == nil {
 			return name, nil
 		} else if !errors.Is(err, exec.ErrNotFound) && !errors.Is(err, fs.ErrNotExist) {
@@ -548,16 +548,16 @@ var reservedAgentArgs = map[string]map[string]bool{
 		"--no-color":      true,
 	},
 	string(types.AgentDroid): {
-		"exec":           true,
-		"-o":             true,
+		"exec":            true,
+		"-o":              true,
 		"--output-format": true,
 		"--input-format":  true,
-		"-f":             true,
-		"--file":         true,
-		"--cwd":          true,
-		"-w":             true,
-		"--worktree":     true,
-		"--worktree-dir": true,
+		"-f":              true,
+		"--file":          true,
+		"--cwd":           true,
+		"-w":              true,
+		"--worktree":      true,
+		"--worktree-dir":  true,
 	},
 }
 

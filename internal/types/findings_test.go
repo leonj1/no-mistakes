@@ -486,3 +486,91 @@ func TestFinding_Action_Values(t *testing.T) {
 		}
 	}
 }
+
+func TestParseFindingsJSON_Significance(t *testing.T) {
+	raw := `{"findings":[{"severity":"warning","significance":"high","description":"important but non-blocking"}]}`
+	f, err := ParseFindingsJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Items) != 1 {
+		t.Fatalf("Items count = %d, want 1", len(f.Items))
+	}
+	if f.Items[0].Significance != "high" {
+		t.Errorf("Significance = %q, want %q", f.Items[0].Significance, "high")
+	}
+}
+
+func TestFinding_Significance_RoundTrip(t *testing.T) {
+	f := Finding{Severity: "error", Significance: "medium", Description: "x", Action: ActionAutoFix}
+	raw, err := json.Marshal(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"significance":"medium"`) {
+		t.Errorf("expected significance in output, got %s", raw)
+	}
+	var back Finding
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Significance != "medium" {
+		t.Errorf("round-trip Significance = %q, want %q", back.Significance, "medium")
+	}
+}
+
+func TestSignificanceRank(t *testing.T) {
+	tests := []struct {
+		in   string
+		want int
+	}{
+		{"high", 3},
+		{"HIGH", 3},
+		{"medium", 2},
+		{"low", 1},
+		{"", 0},
+		{"bogus", 0},
+	}
+	for _, tt := range tests {
+		if got := SignificanceRank(tt.in); got != tt.want {
+			t.Errorf("SignificanceRank(%q) = %d, want %d", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestFilterFindingsByMinSignificance(t *testing.T) {
+	f := Findings{Items: []Finding{
+		{ID: "a", Significance: "high", Description: "h"},
+		{ID: "b", Significance: "medium", Description: "m"},
+		{ID: "c", Significance: "low", Description: "l"},
+		{ID: "d", Significance: "", Description: "unset"},
+	}}
+	// min=high keeps only high.
+	got := FilterFindingsByMinSignificance(f, "high")
+	if len(got.Items) != 1 || got.Items[0].ID != "a" {
+		t.Fatalf("min=high got %d items %+v, want [a]", len(got.Items), ids(got.Items))
+	}
+	// min=medium keeps high+medium.
+	got = FilterFindingsByMinSignificance(f, "medium")
+	if len(got.Items) != 2 {
+		t.Fatalf("min=medium got %v, want [a b]", ids(got.Items))
+	}
+	// min=low keeps everything with a rank >= low; unset (rank 0) is excluded.
+	got = FilterFindingsByMinSignificance(f, "low")
+	if len(got.Items) != 3 {
+		t.Fatalf("min=low got %v, want [a b c]", ids(got.Items))
+	}
+	// empty threshold is a no-op: keep all.
+	got = FilterFindingsByMinSignificance(f, "")
+	if len(got.Items) != 4 {
+		t.Fatalf("min=\"\" got %v, want all 4", ids(got.Items))
+	}
+}
+
+func ids(items []Finding) []string {
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = it.ID
+	}
+	return out
+}

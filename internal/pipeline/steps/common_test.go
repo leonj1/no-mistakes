@@ -799,6 +799,34 @@ func TestReviewFindingsSchema_ValidJSON(t *testing.T) {
 	}
 }
 
+func TestReviewFindingsSchema_RequiresSignificance(t *testing.T) {
+	t.Parallel()
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(reviewFindingsSchema, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	items := parsed["properties"].(map[string]interface{})["findings"].(map[string]interface{})["items"].(map[string]interface{})
+	itemProps := items["properties"].(map[string]interface{})
+	sig, ok := itemProps["significance"].(map[string]interface{})
+	if !ok {
+		t.Fatal("reviewFindingsSchema missing significance property")
+	}
+	enum := sig["enum"].([]interface{})
+	if len(enum) != 3 {
+		t.Errorf("significance enum = %v, want [high medium low]", enum)
+	}
+	required := items["required"].([]interface{})
+	found := false
+	for _, r := range required {
+		if r.(string) == "significance" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("reviewFindingsSchema does not require significance at item level")
+	}
+}
+
 func TestFindingsSchema_Action(t *testing.T) {
 	t.Parallel()
 	var parsed map[string]interface{}

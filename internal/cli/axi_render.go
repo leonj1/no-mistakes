@@ -31,11 +31,25 @@ type stepRow struct {
 }
 
 type findingRow struct {
-	ID          string `toon:"id"`
-	Severity    string `toon:"severity"`
-	File        string `toon:"file"`
-	Action      string `toon:"action"`
-	Description string `toon:"description"`
+	ID           string `toon:"id"`
+	Severity     string `toon:"severity"`
+	Significance string `toon:"significance"`
+	File         string `toon:"file"`
+	Action       string `toon:"action"`
+	Description  string `toon:"description"`
+}
+
+// stepFindingRow is one finding in the cross-step significance-filtered view
+// (`axi status --min-significance`). It carries the owning step so a reader can
+// see which pipeline stage raised each finding in a single flat table.
+type stepFindingRow struct {
+	Step         string `toon:"step"`
+	ID           string `toon:"id"`
+	Severity     string `toon:"severity"`
+	Significance string `toon:"significance"`
+	File         string `toon:"file"`
+	Action       string `toon:"action"`
+	Description  string `toon:"description"`
 }
 
 type runRow struct {
@@ -223,6 +237,63 @@ func (rv runView) findingsTally() string {
 	return joinComma(parts)
 }
 
+// significantFindingRows collects every finding across all steps whose
+// significance ranks at or above min, flattened into step-tagged rows for the
+// `axi status --min-significance` view. A failed step that produced no
+// structured findings (typically the test step, whose failure detail lives in
+// its log rather than as findings) is surfaced as one synthetic high-
+// significance row so a single filtered read shows everything blocking. Rows
+// preserve step order, then finding order within a step.
+func (rv runView) significantFindingRows(min string) []stepFindingRow {
+	var rows []stepFindingRow
+	for _, s := range rv.Steps {
+		var items []types.Finding
+		if s.FindingsJSON != "" {
+			if parsed, err := types.ParseFindingsJSON(s.FindingsJSON); err == nil {
+				items = types.FilterFindingsByMinSignificance(parsed, min).Items
+			}
+		}
+		for _, f := range items {
+			rows = append(rows, stepFindingRow{
+				Step:         s.Name,
+				ID:           f.ID,
+				Severity:     f.Severity,
+				Significance: f.Significance,
+				File:         f.File,
+				Action:       f.Action,
+				Description:  truncate(f.Description, maxFindingDesc),
+			})
+		}
+		// A failed step with no structured findings still blocks the run; report
+		// it once as a synthetic high finding so it clears any threshold.
+		if s.Status == string(types.StepStatusFailed) && len(items) == 0 && len(parseStepItems(s)) == 0 {
+			rows = append(rows, stepFindingRow{
+				Step:         s.Name,
+				ID:           s.Name + "-failed",
+				Severity:     "error",
+				Significance: types.SignificanceHigh,
+				Action:       types.ActionAskUser,
+				Description:  fmt.Sprintf("step %q failed; read `no-mistakes axi logs --step %s --full` for details", s.Name, s.Name),
+			})
+		}
+	}
+	return rows
+}
+
+// parseStepItems returns a step's findings, ignoring parse errors. Used to
+// decide whether a failed step already carries structured findings before
+// synthesizing a placeholder.
+func parseStepItems(s stepView) []types.Finding {
+	if s.FindingsJSON == "" {
+		return nil
+	}
+	parsed, err := types.ParseFindingsJSON(s.FindingsJSON)
+	if err != nil {
+		return nil
+	}
+	return parsed.Items
+}
+
 // fixRows flattens the fixes the pipeline applied across all steps into
 // renderable rows, in step then round order. A fix round that recorded no
 // summary still produced a fix commit, so it gets an explicit placeholder
@@ -307,11 +378,12 @@ func gateFields(gate stepView) []toon.Field {
 	rows := make([]findingRow, 0, len(parsed.Items))
 	for _, f := range parsed.Items {
 		rows = append(rows, findingRow{
-			ID:          f.ID,
-			Severity:    f.Severity,
-			File:        f.File,
-			Action:      f.Action,
-			Description: truncate(f.Description, maxFindingDesc),
+			ID:           f.ID,
+			Severity:     f.Severity,
+			Significance: f.Significance,
+			File:         f.File,
+			Action:       f.Action,
+			Description:  truncate(f.Description, maxFindingDesc),
 		})
 	}
 	gfields = append(gfields, toon.Field{Key: "findings", Value: rows})

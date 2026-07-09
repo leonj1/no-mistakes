@@ -1,0 +1,9 @@
+Step 6 verified done. No changes needed.
+
+- **Code**: `dotnet/src/NoMistakes.Scm/GitHub/Host.cs:98` `FindPRAsync` lists by bare branch (`gh pr list --head <branch>`, never `<owner>:<branch>`) and filters returned `headRefName`/`headRepositoryOwner` fields against configured fork owner. `ForkRouting.SkipReason` fails closed for GitLab, Bitbucket, Azure DevOps, and unknown providers.
+- **Tests**: `GitHubHostTests.cs` covers fork-owner filtering, including test asserting owner-prefixed list form fails; `ForkRoutingTests.cs` covers fail-closed non-GitHub paths.
+- **Acceptance check**: `docker build -f Dockerfile.test.dotnet .` succeeded — `dotnet test` layer passed (cached from identical content).
+- **VERTICAL_SLICES.md**: slice 6 marked `Done` (line 25).
+- **PR**: #8 open against `main`, branch pushed, working tree clean (only untracked logs).
+
+All acceptance criteria met. STEPS.md `[x]` stays; nothing appended to FIXES.md.

@@ -652,3 +652,31 @@
   (~/Library/Caches/{go-build,Homebrew,*.ShipIt}), restarted Docker Desktop,
   then the build ran clean. If Docker errors look like corruption, check
   `df -h` first.
+
+## Slice 8c.2b
+
+- `axi respond` finding flags live in `AxiDrive.RespondAsync(env, progress,
+  action, findings, instructions, addFinding, ciChecksPassed, ct)` — the
+  three flag values are optional string params (default ""), so 8c.2a
+  call sites still compile. CliApp wires `--findings`/`--instructions`/
+  `--add-finding` as plain value flags via ParseAxiFlags.
+- Go-order parity preserved: finding IDs are split (`AxiDrive.SplitCsv`,
+  ports splitCSV — trims, drops empties) for EVERY action and passed to
+  SendRespondAsync even for approve/skip; the fix-only block (empty-selection
+  exit-2 error, instructions fan-out, add-finding parse) runs AFTER the
+  gate lookup, so selection errors still require an active parked run.
+- `--instructions` is ONE note fanned out per selected finding ID
+  (map id→note); it is silently dropped when there are no --findings IDs
+  (Go behavior) — pinned by the add-finding CLI test passing an orphan note.
+- `AxiDrive.ParseAddFinding` ports parseAddFinding (lives in AxiDrive, not
+  AxiQuery, since only respond uses it): `Deserialize<Finding>` with
+  PropertyNameCaseInsensitive (encoding/json parity), JsonException wrapped
+  in FormatException; null literal / blank description throw
+  "description is required". CLI maps FormatException to exit 2
+  `invalid --add-finding: <msg>` + the Go help string
+  `Expected a JSON object, e.g. {"description":"...","action":"auto-fix"}`.
+  Error text after the prefix differs from Go (System.Text.Json wording) —
+  tests assert the prefix only.
+- `RespondSeen` in AxiRespondTests now captures Instructions and Added from
+  the responder; 8c.2c can reuse it for --step/--yes coverage.
+- Docker verification: 391 tests passed (379 baseline + 12 new).

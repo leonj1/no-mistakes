@@ -239,18 +239,21 @@ public sealed class CliApp
 
     /// <summary>
     /// The `axi respond` command: answer the current approval gate with
-    /// approve/fix/skip and continue driving the run. Ports Go's
-    /// newAxiRespondCmd; the finding flags arrive in slice 8c.2b and
-    /// --step/--yes in 8c.2c.
+    /// approve/fix/skip and continue driving the run - fix selecting findings
+    /// via --findings/--instructions/--add-finding. Ports Go's
+    /// newAxiRespondCmd; --step/--yes arrive in slice 8c.2c.
     /// </summary>
     private int RunAxiRespond(IReadOnlyList<string> args)
     {
-        var action = "";
+        string action = "", findings = "", instructions = "", addFinding = "";
         try
         {
             ParseAxiFlags(args, new Dictionary<string, Action<string>>
             {
                 ["--action"] = v => action = v,
+                ["--findings"] = v => findings = v,
+                ["--instructions"] = v => instructions = v,
+                ["--add-finding"] = v => addFinding = v,
             });
         }
         catch (ArgumentException ex)
@@ -275,7 +278,8 @@ public sealed class CliApp
         }
         using (env)
         {
-            return Emit(AxiDrive.RespondAsync(env, stderr, action).GetAwaiter().GetResult());
+            return Emit(AxiDrive.RespondAsync(env, stderr, action, findings, instructions, addFinding)
+                .GetAwaiter().GetResult());
         }
     }
 

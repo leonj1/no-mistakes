@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NoMistakes.Core;
 using NoMistakes.Git;
 using NoMistakes.Ipc;
@@ -10,8 +11,7 @@ namespace NoMistakes.Cli;
 /// (answer the current approval gate and continue), and the worktree/branch-
 /// scoped `axi abort`. Ports Go's internal/cli/axi_drive.go (runAxiRun,
 /// driveRun, renderDriveResult, runAxiRespond, runAxiAbort); respond's
-/// finding flags (--findings/--add-finding/--instructions) arrive in slice
-/// 8c.2b, --step targeting and --yes in 8c.2c.
+/// --step targeting and --yes arrive in slice 8c.2c.
 /// </summary>
 public static class AxiDrive
 {
@@ -580,17 +580,69 @@ public static class AxiDrive
     }
 
     /// <summary>
+    /// Splits a comma-separated value into trimmed, non-empty parts. Ports
+    /// Go's splitCSV (nil for no parts becomes an empty list).
+    /// </summary>
+    internal static List<string> SplitCsv(string s)
+    {
+        var result = new List<string>();
+        foreach (var part in s.Split(','))
+        {
+            var trimmed = part.Trim();
+            if (trimmed.Length > 0)
+            {
+                result.Add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    private static readonly JsonSerializerOptions AddFindingOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    /// <summary>
+    /// Decodes a user-authored finding from a JSON object string, throwing
+    /// <see cref="FormatException"/> on malformed JSON or a missing
+    /// description. Ports Go's parseAddFinding; the wire keys are Finding's
+    /// JsonPropertyName tags (Go's json tags), matched case-insensitively
+    /// like encoding/json.
+    /// </summary>
+    internal static Finding ParseAddFinding(string raw)
+    {
+        Finding? f;
+        try
+        {
+            f = JsonSerializer.Deserialize<Finding>(raw, AddFindingOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new FormatException(ex.Message);
+        }
+        if (f == null || f.Description.Trim().Length == 0)
+        {
+            throw new FormatException("description is required");
+        }
+        return f;
+    }
+
+    /// <summary>
     /// The `axi respond` operation over an already-opened daemon-connected
     /// env: sends the approve/fix/skip action for the step currently awaiting
-    /// approval, then blocks until the next gate, CI-ready decision point, or
-    /// final outcome. Ports Go's runAxiRespond without the finding flags
-    /// (8c.2b) and --step/--yes (8c.2c); callers validate the action with
-    /// <see cref="ValidateRespondAction"/> first.
+    /// approval - for fix, carrying the selected finding IDs, the per-finding
+    /// instructions note, and any added finding - then blocks until the next
+    /// gate, CI-ready decision point, or final outcome. Ports Go's
+    /// runAxiRespond without --step/--yes (8c.2c); callers validate the
+    /// action with <see cref="ValidateRespondAction"/> first.
     /// </summary>
     public static async Task<AxiOutput> RespondAsync(
         AxiEnv env,
         TextWriter? progress,
         string action,
+        string findings = "",
+        string instructions = "",
+        string addFinding = "",
         Func<string, bool>? ciChecksPassed = null,
         CancellationToken ct = default)
     {
@@ -647,17 +699,48 @@ public static class AxiDrive
         }
         var stepName = gate.Name;
 
-        // The fix verb's finding selection flags land in slice 8c.2b; until
-        // then this always trips, matching Go's empty-selection usage error.
+        // Go computes the finding IDs for every action; instructions and the
+        // added finding apply only to fix.
+        var findingIds = SplitCsv(findings);
+        Dictionary<string, string>? instructionsMap = null;
+        List<Finding>? added = null;
+
         if (act == ApprovalAction.Fix)
         {
-            return AxiOutput.Error(2, "--action fix requires --findings <id,...> or --add-finding <json>",
-                "Run `no-mistakes axi status` to list finding IDs");
+            if (findingIds.Count == 0 && addFinding.Length == 0)
+            {
+                return AxiOutput.Error(2, "--action fix requires --findings <id,...> or --add-finding <json>",
+                    "Run `no-mistakes axi status` to list finding IDs");
+            }
+            var note = instructions.Trim();
+            if (note.Length > 0 && findingIds.Count > 0)
+            {
+                instructionsMap = new Dictionary<string, string>(findingIds.Count);
+                foreach (var id in findingIds)
+                {
+                    instructionsMap[id] = note;
+                }
+            }
+            if (addFinding.Length > 0)
+            {
+                Finding f;
+                try
+                {
+                    f = ParseAddFinding(addFinding);
+                }
+                catch (FormatException ex)
+                {
+                    return AxiOutput.Error(2, $"invalid --add-finding: {ex.Message}",
+                        """Expected a JSON object, e.g. {"description":"...","action":"auto-fix"}""");
+                }
+                added = new List<Finding> { f };
+            }
         }
 
         try
         {
-            await SendRespondAsync(client, runId, stepName, act, null, null, null, ct).ConfigureAwait(false);
+            await SendRespondAsync(client, runId, stepName, act, findingIds, instructionsMap, added, ct)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

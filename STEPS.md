@@ -50,7 +50,7 @@ Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `axi run
 - [x] **Slice 8c.2a — `axi respond` verb dispatch.** Port the `axi respond` command with the three response verbs (approve/fix/skip) resolving a parked gate, without the finding or targeting flags. Tests cover each verb's gate-resolution semantics.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the approve/fix/skip verb tests passing.
 
-- [ ] **Slice 8c.2b — `axi respond` finding flags.** Port the `--findings` and `--add-finding` flags on `axi respond`, including finding-payload parsing and validation errors for malformed payloads. Tests cover each flag's payload path and the malformed-payload errors.
+- [x] **Slice 8c.2b — `axi respond` finding flags.** Port the `--findings` and `--add-finding` flags on `axi respond`, including finding-payload parsing and validation errors for malformed payloads. Tests cover each flag's payload path and the malformed-payload errors.
 Done when: `docker build -f Dockerfile.test.dotnet .` succeeds with the `--findings`/`--add-finding` payload and error tests passing.
 
 - [ ] **Slice 8c.2c — `axi respond` `--step` targeting and `--yes` default.** Port the `--step` flag (targeting a specific parked step) and the `--yes` default behavior on `axi respond`. Tests cover step targeting, targeting a non-parked step, and the `--yes` default path.

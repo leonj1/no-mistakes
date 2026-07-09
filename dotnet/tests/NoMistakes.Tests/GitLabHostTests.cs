@@ -7,8 +7,8 @@ namespace NoMistakes.Tests;
 /// <summary>
 /// Ports Go's internal/scm/gitlab tests for the glab command wrapper:
 /// argument construction (incl. the removed --state flag and the
-/// branch-independent `glab api` job reads), host-scoped auth, and job
-/// parsing. MR lookup (FindPR) and fork routing land in slice 6c.
+/// branch-independent `glab api` job reads), host-scoped auth, job parsing,
+/// and MR lookup (FindPR).
 /// </summary>
 public class GitLabHostTests
 {
@@ -378,5 +378,77 @@ public class GitLabHostTests
 
         await Assert.ThrowsAsync<ScmCommandException>(
             () => host.GetChecksAsync(new PullRequest { Number = "123" }));
+    }
+
+    [Fact]
+    public async Task FindPRWithoutIIDKeepsNumberEmptyAndUpdatesByNumberFromURL()
+    {
+        const string branch = "feature/refactor";
+        const string url = "https://gitlab.example.com/group/project/-/merge_requests/42";
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["glab mr list --source-branch " + branch + " --target-branch main --output json"] = new(
+                Stdout: $"[{{\"web_url\":\"{url}\"}}]\n"),
+            ["glab mr update 42 --title updated --description body --yes"] = new(Stdout: "updated\n"),
+        });
+
+        var pr = await host.FindPRAsync(branch, "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("", pr.Number);
+        Assert.Equal(url, pr.Url);
+
+        var updated = await host.UpdatePRAsync(pr, new PullRequestContent("updated", "body"));
+        Assert.Same(pr, updated);
+    }
+
+    [Fact]
+    public async Task FindPRFiltersByBaseBranch()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["glab mr list --source-branch feature/refactor --target-branch release/1.0 --output json"] = new(
+                Stdout: """[{"iid":42,"web_url":"https://gitlab.example.com/group/project/-/merge_requests/42"}]""" + "\n"),
+        });
+
+        var pr = await host.FindPRAsync("feature/refactor", "release/1.0");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+        Assert.Equal("https://gitlab.example.com/group/project/-/merge_requests/42", pr.Url);
+    }
+
+    [Fact]
+    public async Task FindPRReturnsCLIError()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["glab mr list --source-branch feature/refactor --target-branch main --output json"] = new(
+                Stderr: "gitlab unavailable\n", Code: 1),
+        });
+
+        var e = await Assert.ThrowsAsync<ScmCommandException>(
+            () => host.FindPRAsync("feature/refactor", "main"));
+
+        Assert.Contains("glab mr list", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FindPRDoesNotPassRemovedStateFlag()
+    {
+        // glab v1.5x removed --state; the open-by-default list must be used.
+        // The fixture key omits --state, so a regression that re-adds it
+        // would fall through to the "unexpected command" error and fail this
+        // test.
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["glab mr list --source-branch feature/x --target-branch main --output json"] = new(
+                Stdout: """[{"iid":7,"web_url":"https://gitlab.example.com/group/project/-/merge_requests/7"}]""" + "\n"),
+        });
+
+        var pr = await host.FindPRAsync("feature/x", "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("7", pr.Number);
     }
 }

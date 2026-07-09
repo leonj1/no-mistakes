@@ -15,14 +15,24 @@ namespace NoMistakes.Scm.GitHub;
 /// --repo to every PR/run command so they resolve the right repository
 /// regardless of the process working directory (the daemon runs from a fixed,
 /// non-repo working dir). Both are optional; empty reproduces the legacy
-/// unscoped behavior.
+/// unscoped behavior. <paramref name="forkRepo"/> is the contributor fork's
+/// "owner/name" slug (Go's <c>NewWithFork</c>); only its owner is kept,
+/// because gh pr create expects --head &lt;owner&gt;:&lt;branch&gt; for
+/// cross-repository PR heads.
 /// </summary>
-public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string host, string repo) : IHost
+public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string host, string repo, string forkRepo)
+    : IHost
 {
+    public Host(CommandRunner run, Func<bool>? cliAvailable, string host, string repo)
+        : this(run, cliAvailable, host, repo, "")
+    {
+    }
+
     private readonly CommandRunner _run = run;
     private readonly Func<bool>? _cliAvailable = cliAvailable;
     private readonly string _host = host.Trim();
     private readonly string _repo = repo.Trim();
+    private readonly string _forkOwner = RepoOwner(forkRepo);
 
     public Provider Provider => Provider.GitHub;
 
@@ -35,6 +45,21 @@ public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string hos
     /// </summary>
     private string[] RepoArgs()
         => _repo.Length == 0 ? Array.Empty<string>() : new[] { "--repo", _repo };
+
+    /// <summary>
+    /// The --head value for pr create: owner-prefixed when a fork is
+    /// configured (cross-repository head), bare otherwise. pr list must NOT
+    /// use this - see <see cref="FindPRAsync"/>.
+    /// </summary>
+    private string HeadRef(string branch)
+        => _forkOwner.Length == 0 ? branch : _forkOwner + ":" + branch;
+
+    private static string RepoOwner(string slug)
+    {
+        var trimmed = slug.Trim();
+        var slash = trimmed.IndexOf('/');
+        return slash < 0 ? "" : trimmed[..slash].Trim();
+    }
 
     public async Task<string?> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
     {
@@ -63,11 +88,93 @@ public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string hos
         return null;
     }
 
+    /// <summary>
+    /// Returns the open PR for the source branch, or null when none exists.
+    /// gh pr list --head does not accept the "&lt;owner&gt;:&lt;branch&gt;"
+    /// form pr create uses, so the fork lookup lists by the bare branch name
+    /// and filters the returned headRefName/headRepositoryOwner fields down
+    /// to the configured fork owner. Mirrors Go's <c>FindPR</c>.
+    /// </summary>
+    public async Task<PullRequest?> FindPRAsync(
+        string branch, string baseBranch, CancellationToken cancellationToken = default)
+    {
+        var args = new List<string> { "pr", "list", "--head", branch };
+        if (baseBranch.Trim().Length > 0)
+        {
+            args.Add("--base");
+            args.Add(baseBranch);
+        }
+        args.AddRange(RepoArgs());
+        var jsonFields = _forkOwner.Length == 0
+            ? "number,url"
+            : "number,url,headRefName,headRepositoryOwner";
+        args.AddRange(new[] { "--state", "open", "--json", jsonFields });
+        var result = await _run("gh", args, null, cancellationToken).ConfigureAwait(false);
+        if (!result.Success)
+        {
+            throw new ScmCommandException(
+                $"gh pr list: {result.CombinedOutput.Trim()}: exit status {result.ExitCode}");
+        }
+        List<PrListEntry>? prs;
+        try
+        {
+            prs = JsonSerializer.Deserialize<List<PrListEntry>>(result.CombinedOutput);
+        }
+        catch (JsonException)
+        {
+            // Go returns (nil, nil) when the list output does not unmarshal.
+            return null;
+        }
+        if (prs is null || prs.Count == 0)
+        {
+            return null;
+        }
+        foreach (var candidate in prs)
+        {
+            if (!MatchesHead(candidate.HeadRefName, candidate.HeadRepositoryOwner, branch))
+            {
+                continue;
+            }
+            var url = (candidate.Url ?? "").Trim();
+            if (url.Length == 0)
+            {
+                return null;
+            }
+            var number = candidate.Number > 0
+                ? candidate.Number.ToString(CultureInfo.InvariantCulture)
+                : PullRequestUrl.TryExtractNumber(url, out var fromUrl) ? fromUrl : "";
+            return new PullRequest { Number = number, Url = url };
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Filters a listed PR down to the configured fork owner. Without a fork
+    /// every candidate matches (the bare-branch list is already scoped).
+    /// </summary>
+    private bool MatchesHead(string? headRefName, PrListOwner? owner, string branch)
+    {
+        if (_forkOwner.Length == 0)
+        {
+            return true;
+        }
+        var head = (headRefName ?? "").Trim();
+        if (head.Length > 0 && headRefName != branch)
+        {
+            return false;
+        }
+        if (owner is null)
+        {
+            return false;
+        }
+        return string.Equals((owner.Login ?? "").Trim(), _forkOwner, StringComparison.OrdinalIgnoreCase);
+    }
+
     public async Task<PullRequest> CreatePRAsync(
         string branch, string baseBranch, PullRequestContent content,
         CancellationToken cancellationToken = default)
     {
-        var args = new List<string> { "pr", "create", "--head", branch, "--base", baseBranch };
+        var args = new List<string> { "pr", "create", "--head", HeadRef(branch), "--base", baseBranch };
         args.AddRange(RepoArgs());
         args.AddRange(new[] { "--title", content.Title, "--body-file", "-" });
         var result = await _run("gh", args, content.Body, cancellationToken).ConfigureAwait(false);
@@ -296,6 +403,14 @@ public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string hos
         }
         return false;
     }
+
+    private sealed record PrListEntry(
+        [property: JsonPropertyName("number")] int Number,
+        [property: JsonPropertyName("url")] string? Url,
+        [property: JsonPropertyName("headRefName")] string? HeadRefName,
+        [property: JsonPropertyName("headRepositoryOwner")] PrListOwner? HeadRepositoryOwner);
+
+    private sealed record PrListOwner([property: JsonPropertyName("login")] string? Login);
 
     private sealed record RawCheck(
         [property: JsonPropertyName("name")] string? Name,

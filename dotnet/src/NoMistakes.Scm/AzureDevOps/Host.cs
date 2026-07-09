@@ -103,6 +103,46 @@ public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string org
         return null;
     }
 
+    /// <summary>
+    /// Returns the first active PR for the source branch, or null when none
+    /// exists. Mirrors Go's <c>FindPR</c>.
+    /// </summary>
+    public async Task<PullRequest?> FindPRAsync(
+        string branch, string baseBranch, CancellationToken cancellationToken = default)
+    {
+        var args = new List<string>
+        {
+            "repos", "pr", "list", "--source-branch", branch, "--status", "active",
+        };
+        if (baseBranch.Trim().Length > 0)
+        {
+            args.Add("--target-branch");
+            args.Add(baseBranch);
+        }
+        args.AddRange(ScopeArgs());
+        args.Add("--output");
+        args.Add("json");
+        var stdout = await OutputJsonAsync("az repos pr list", args, cancellationToken).ConfigureAwait(false);
+        if (stdout.Trim().Length == 0)
+        {
+            return null;
+        }
+        List<AzPR>? prs;
+        try
+        {
+            prs = JsonSerializer.Deserialize<List<AzPR>>(stdout);
+        }
+        catch (JsonException e)
+        {
+            throw new ScmCommandException($"az repos pr list: parse response: {e.Message}");
+        }
+        if (prs is null || prs.Count == 0)
+        {
+            return null;
+        }
+        return ToPR(prs[0]);
+    }
+
     public async Task<PullRequest> CreatePRAsync(
         string branch, string baseBranch, PullRequestContent content,
         CancellationToken cancellationToken = default)

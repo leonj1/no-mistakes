@@ -61,6 +61,44 @@ public class BitbucketHostTests
     }
 
     [Fact]
+    public async Task FindPRMapsClientLookupToPullRequest()
+    {
+        var host = new BitbucketHost(NewClient(request =>
+        {
+            Assert.Contains(
+                "/2.0/repositories/test/repo/pullrequests",
+                request.RequestUri!.AbsolutePath, StringComparison.Ordinal);
+            return Json(
+                """{"values":[{"id":42,"links":{"html":{"href":"https://bitbucket.org/test/repo/pull-requests/42"}}}]}""");
+        }), Repo);
+
+        var pr = await host.FindPRAsync("feature", "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+        Assert.Equal("https://bitbucket.org/test/repo/pull-requests/42", pr.Url);
+    }
+
+    [Fact]
+    public async Task FindPRReturnsNullWhenNoOpenPRExists()
+    {
+        var host = new BitbucketHost(NewClient(_ => Json("""{"values":[]}""")), Repo);
+
+        Assert.Null(await host.FindPRAsync("feature", "main"));
+    }
+
+    [Fact]
+    public async Task FindPRRequiresConfiguredClient()
+    {
+        var host = new BitbucketHost(null, Repo);
+
+        var e = await Assert.ThrowsAsync<ScmCommandException>(
+            () => host.FindPRAsync("feature", "main"));
+
+        Assert.Equal("bitbucket client is not configured", e.Message);
+    }
+
+    [Fact]
     public async Task GetMergeableStateUnsupported()
     {
         var host = new BitbucketHost(NewClient(_ => throw new InvalidOperationException("no HTTP expected")), Repo);

@@ -181,3 +181,37 @@
 - Both Go raw-string passthroughs (bitbucket normalizePRState unknown states,
   bucket "") map to enum `Unknown`/`None` per the 6b.1 convention.
 - Docker verification: 416 tests passed (290 baseline + 126 new).
+
+## Slice 6c
+
+- `IHost.FindPRAsync(branch, baseBranch, ct) -> Task<PullRequest?>` (null = no
+  open PR, mirroring Go's `(nil, nil)`) implemented on all four hosts. Go's
+  unmarshal-error-means-nil behavior is kept on GitHub/GitLab (unparseable
+  list output returns null, NOT an exception); Azure throws
+  `ScmCommandException "az repos pr list: parse response: ..."` like Go.
+- GitHub fork support: `GitHub.Host` gained a 5th ctor param `forkRepo`
+  ("owner/name" slug; only the owner is kept) - the 5-arg primary ctor is
+  Go's `NewWithFork`, the 4-arg ctor chains with `""`. `CreatePRAsync` now
+  passes `--head <forkOwner>:<branch>` when a fork is configured. FindPR
+  lists by the BARE branch (gh pr list --head rejects `<owner>:<branch>`) and
+  filters returned `headRefName`/`headRepositoryOwner.login` (case-insensitive
+  owner compare); the fork test poisons the owner-prefixed fixture key so a
+  regression fails loudly. json fields requested widen to
+  `number,url,headRefName,headRepositoryOwner` only when a fork is set.
+- Fork routing fail-closed guard is a pure function
+  `NoMistakes.Scm.ForkRouting.SkipReason(Provider, forkUrl)` (new
+  `ForkRouting.cs`): null = proceed (blank fork URL, or GitHub); otherwise
+  Go buildHost's exact skip strings ("fork PR routing for GitLab is not
+  implemented", ... Bitbucket ..., ... "Azure DevOps" ...). Unknown provider
+  with a fork URL also fails closed. Slice 12's buildHost port must call this
+  before constructing GitLab/Bitbucket/AzureDevOps hosts and skip PR creation
+  with the returned reason (Go: internal/pipeline/steps/host.go).
+- GitLab FindPR keeps the no-`--state`-flag invariant (v1.5x) - the test
+  fixture key omits it - and routes through `TrimToJson` first. New
+  `GitLab.Host.ToPR(MrPayload)` (internal) mirrors Go's `mrPayload.toPR`.
+- Bitbucket host-level FindPR delegates to the already-ported
+  `Client.FindOpenPRBySourceBranchAsync`; a null client throws
+  `ScmCommandException "bitbucket client is not configured"` (RequireClient),
+  matching create/update.
+- Docker verification: 437 tests passed (416 baseline + 21 new). Slice 6
+  marked Done in VERTICAL_SLICES.md.

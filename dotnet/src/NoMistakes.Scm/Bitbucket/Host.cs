@@ -2,9 +2,7 @@ namespace NoMistakes.Scm.Bitbucket;
 
 /// <summary>
 /// Implements <see cref="IHost"/> for Bitbucket using the REST API client,
-/// mirroring Go's <c>internal/bitbucket.Host</c>. PR/MR lookup (Go's
-/// <c>FindPR</c>, backed by <see cref="Client.FindOpenPRBySourceBranchAsync"/>)
-/// joins the interface in slice 6c.
+/// mirroring Go's <c>internal/bitbucket.Host</c>.
 /// </summary>
 public sealed class Host(Client? client, RepoRef repo) : IHost
 {
@@ -27,6 +25,20 @@ public sealed class Host(Client? client, RepoRef repo) : IHost
     /// </summary>
     public Task<string?> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(_client is null ? "bitbucket client is not configured" : null);
+
+    /// <summary>
+    /// Returns the open PR for the source branch, or null when none exists.
+    /// Mirrors Go's <c>FindPR</c>, backed by
+    /// <see cref="Client.FindOpenPRBySourceBranchAsync"/>.
+    /// </summary>
+    public async Task<PullRequest?> FindPRAsync(
+        string branch, string baseBranch, CancellationToken cancellationToken = default)
+    {
+        var pr = await RequireClient()
+            .FindOpenPRBySourceBranchAsync(_repo, branch, baseBranch, cancellationToken)
+            .ConfigureAwait(false);
+        return pr is null ? null : ToPR(pr);
+    }
 
     public async Task<PullRequest> CreatePRAsync(
         string branch, string baseBranch, PullRequestContent content,

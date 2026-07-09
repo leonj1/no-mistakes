@@ -8,9 +8,9 @@ namespace NoMistakes.Tests;
 /// Ports Go's internal/scm/azuredevops tests for the az command wrapper:
 /// argument construction (org/project/repo scoping, --output json), the
 /// extension + auth availability probes, stdout-only JSON reads (stderr
-/// chatter must not corrupt payloads), policy-evaluation filtering, and the
-/// 4000-character description clamp. PR lookup (FindPR / `az repos pr list`)
-/// lands in slice 6c.
+/// chatter must not corrupt payloads), policy-evaluation filtering, the
+/// 4000-character description clamp, and PR lookup (FindPR / `az repos pr
+/// list`).
 /// </summary>
 public class AzureDevOpsHostTests
 {
@@ -315,5 +315,64 @@ public class AzureDevOpsHostTests
 
         await Assert.ThrowsAsync<NotSupportedException>(() => host.FetchFailedCheckLogsAsync(
             new PullRequest { Number = "42" }, "feature", "abc123", new[] { "ci-build" }));
+    }
+
+    [Fact]
+    public async Task FindPRReturnsBrowsableURL()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["az repos pr list --source-branch feature --status active --target-branch main --organization " + TestOrg + " --project " + TestProject + " --repository " + TestRepo + " --output json"] = new(
+                Stdout: """[{"pullRequestId":42,"status":"active","repository":{"webUrl":"https://dev.azure.com/myorg/myproject/_git/myrepo"}}]""" + "\n"),
+        });
+
+        var pr = await host.FindPRAsync("feature", "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+        Assert.Equal("https://dev.azure.com/myorg/myproject/_git/myrepo/pullrequest/42", pr.Url);
+    }
+
+    [Fact]
+    public async Task FindPRNoMatch()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["az repos pr list --source-branch feature --status active --organization " + TestOrg + " --project " + TestProject + " --repository " + TestRepo + " --output json"] = new(
+                Stdout: "[]\n"),
+        });
+
+        Assert.Null(await host.FindPRAsync("feature", ""));
+    }
+
+    [Fact]
+    public async Task FindPRIgnoresStderrChatter()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["az repos pr list --source-branch feature --status active --target-branch main --organization " + TestOrg + " --project " + TestProject + " --repository " + TestRepo + " --output json"] = new(
+                Stdout: """[{"pullRequestId":42,"status":"active","repository":{"webUrl":"https://dev.azure.com/myorg/myproject/_git/myrepo"}}]""" + "\n",
+                Stderr: "Command group 'repos pr' is in preview and under development.\n"),
+        });
+
+        var pr = await host.FindPRAsync("feature", "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+    }
+
+    [Fact]
+    public async Task FindPRReportsParseError()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["az repos pr list --source-branch feature --status active --target-branch main --organization " + TestOrg + " --project " + TestProject + " --repository " + TestRepo + " --output json"] = new(
+                Stdout: "not json at all\n"),
+        });
+
+        var e = await Assert.ThrowsAsync<ScmCommandException>(
+            () => host.FindPRAsync("feature", "main"));
+
+        Assert.Contains("az repos pr list: parse response", e.Message, StringComparison.Ordinal);
     }
 }

@@ -95,6 +95,69 @@ public sealed class Host(CommandRunner run, Func<bool>? cliAvailable, string hos
         return null;
     }
 
+    /// <summary>
+    /// Returns the open MR for the source branch, or null when none exists.
+    /// Mirrors Go's <c>FindPR</c>.
+    /// </summary>
+    public async Task<PullRequest?> FindPRAsync(
+        string branch, string baseBranch, CancellationToken cancellationToken = default)
+    {
+        var args = new List<string> { "mr", "list", "--source-branch", branch };
+        if (baseBranch.Trim().Length > 0)
+        {
+            args.Add("--target-branch");
+            args.Add(baseBranch);
+        }
+        // `glab mr list` returns open MRs by default. Older glab accepted
+        // `--state opened`, but glab v1.5x removed it (it now exposes
+        // -c/--closed, -M/--merged, -A/--all); passing the unknown flag fails
+        // the whole command. Rely on the open-by-default behavior.
+        args.Add("--output");
+        args.Add("json");
+        var result = await _run("glab", args, null, cancellationToken).ConfigureAwait(false);
+        if (!result.Success)
+        {
+            throw new ScmCommandException(
+                $"glab mr list: {result.CombinedOutput.Trim()}: exit status {result.ExitCode}");
+        }
+        var trimmed = TrimToJson(result.CombinedOutput);
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+        List<MrPayload>? mrs;
+        try
+        {
+            mrs = JsonSerializer.Deserialize<List<MrPayload>>(trimmed);
+        }
+        catch (JsonException)
+        {
+            // Go returns (nil, nil) when the list output does not unmarshal.
+            return null;
+        }
+        if (mrs is null || mrs.Count == 0)
+        {
+            return null;
+        }
+        var pr = ToPR(mrs[0]);
+        return pr.Url.Length == 0 ? null : pr;
+    }
+
+    /// <summary>Mirrors Go's <c>mrPayload.toPR</c>.</summary>
+    internal static PullRequest ToPR(MrPayload mr)
+    {
+        var url = (mr.WebUrl ?? "").Trim();
+        if (url.Length == 0)
+        {
+            url = (mr.Url ?? "").Trim();
+        }
+        return new PullRequest
+        {
+            Number = mr.Iid > 0 ? mr.Iid.ToString(CultureInfo.InvariantCulture) : "",
+            Url = url,
+        };
+    }
+
     public async Task<PullRequest> CreatePRAsync(
         string branch, string baseBranch, PullRequestContent content,
         CancellationToken cancellationToken = default)

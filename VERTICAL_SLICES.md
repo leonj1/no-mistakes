@@ -22,7 +22,7 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 3. SQLite run database | Done | `internal/db`, migrations | `NoMistakes.Data` |
 | 4. Git command wrapper and repository model | Done | `internal/git`, `internal/types` | `NoMistakes.Git`, `NoMistakes.Core` |
 | 5. Shell process lifecycle | Planned | `internal/shellenv` | `NoMistakes.Processes` |
-| 6. SCM URL parsing and host backends | Planned | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
+| 6. SCM URL parsing and host backends | Done | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
 | 7. Daemon IPC and run lifecycle | Planned | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
 | 8. AXI command surface and gates | Planned | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
 | 9. Pipeline executor and step contracts | Planned | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |

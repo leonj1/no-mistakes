@@ -3,8 +3,7 @@ namespace NoMistakes.Scm;
 /// <summary>
 /// Provider-agnostic interface to a PR-hosting service, mirroring Go's
 /// <c>internal/scm.Host</c>. Transport (CLI vs HTTP API) is an implementation
-/// detail. PR/MR lookup (Go's <c>FindPR</c>) joins in slice 6c alongside fork
-/// routing.
+/// detail.
 ///
 /// Optional methods (<see cref="GetMergeableStateAsync"/>,
 /// <see cref="FetchFailedCheckLogsAsync"/>) are gated on
@@ -24,6 +23,14 @@ public interface IHost
     /// <c>Available</c> returning an error.
     /// </summary>
     Task<string?> CheckAvailabilityAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the open PR for the source branch (optionally filtered by base
+    /// branch), or null when none exists. Mirrors Go's <c>FindPR</c>
+    /// returning (nil, nil) on no match.
+    /// </summary>
+    Task<PullRequest?> FindPRAsync(
+        string branch, string baseBranch, CancellationToken cancellationToken = default);
 
     Task<PullRequest> CreatePRAsync(
         string branch, string baseBranch, PullRequestContent content,

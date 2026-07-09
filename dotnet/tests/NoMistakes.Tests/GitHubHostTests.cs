@@ -7,8 +7,8 @@ namespace NoMistakes.Tests;
 
 /// <summary>
 /// Ports Go's internal/scm/github tests for the gh command wrapper: argument
-/// construction, host-scoped auth, and check/state normalization. PR lookup
-/// (FindPR) and fork routing land in slice 6c.
+/// construction, host-scoped auth, check/state normalization, PR lookup
+/// (FindPR, incl. fork-owner filtering), and fork PR creation.
 /// </summary>
 public class GitHubHostTests
 {
@@ -236,5 +236,94 @@ public class GitHubHostTests
             new PullRequest { Number = "123" }, "feature", "abc123", new[] { "lint" });
 
         Assert.Equal("lint failed", logs);
+    }
+
+    [Fact]
+    public async Task FindPRFiltersByBaseBranch()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["gh pr list --head feature/refactor --base release/1.0 --state open --json number,url"] = new(
+                Stdout: """[{"number":42,"url":"https://github.example.com/org/repo/pull/42"}]""" + "\n"),
+        });
+
+        var pr = await host.FindPRAsync("feature/refactor", "release/1.0");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+        Assert.Equal("https://github.example.com/org/repo/pull/42", pr.Url);
+    }
+
+    [Fact]
+    public async Task FindPRForkUsesBareHeadAndFiltersOwner()
+    {
+        // gh pr list --head does not support "<owner>:<branch>"; the fork
+        // lookup must list by the bare branch and filter the returned
+        // head-owner fields. The owner-prefixed fixture is poisoned with an
+        // error so a regression that passes it surfaces as a command failure.
+        const string branch = "feature/refactor";
+        var host = new GitHubHost(ScmCommandFakes.Runner(new Dictionary<string, FakeCommandResponse>
+        {
+            ["gh pr list --head fork-owner:" + branch + " --base main --repo parent/repo --state open --json number,url,headRefName,headRepositoryOwner"] = new(
+                Stderr: "invalid argument: \"--head\" does not support \"<owner>:<branch>\"\n", Code: 1),
+            ["gh pr list --head " + branch + " --base main --repo parent/repo --state open --json number,url,headRefName,headRepositoryOwner"] = new(
+                Stdout: "["
+                    + """{"number":40,"url":"https://github.com/parent/repo/pull/40","headRefName":"feature/refactor","headRepositoryOwner":{"login":"other-owner"}},"""
+                    + """{"number":42,"url":"https://github.com/parent/repo/pull/42","headRefName":"feature/refactor","headRepositoryOwner":{"login":"fork-owner"}}"""
+                    + "]\n"),
+        }), null, "", "parent/repo", "fork-owner/repo");
+
+        var pr = await host.FindPRAsync(branch, "main");
+
+        Assert.NotNull(pr);
+        Assert.Equal("42", pr.Number);
+        Assert.Equal("https://github.com/parent/repo/pull/42", pr.Url);
+    }
+
+    [Fact]
+    public async Task FindPRReturnsCLIError()
+    {
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["gh pr list --head feature/refactor --base main --state open --json number,url"] = new(
+                Stderr: "api unavailable\n", Code: 1),
+        });
+
+        var e = await Assert.ThrowsAsync<ScmCommandException>(
+            () => host.FindPRAsync("feature/refactor", "main"));
+
+        Assert.Contains("gh pr list", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FindPRReturnsNullOnUnparseableOutput()
+    {
+        // Go returns nil, nil when the list output does not unmarshal; the
+        // port mirrors that as a null PR rather than an exception.
+        var host = NewHost(new Dictionary<string, FakeCommandResponse>
+        {
+            ["gh pr list --head feature/refactor --base main --state open --json number,url"] = new(
+                Stdout: "not json\n"),
+        });
+
+        Assert.Null(await host.FindPRAsync("feature/refactor", "main"));
+    }
+
+    [Fact]
+    public async Task CreatePRWithForkPassesOwnerPrefixedHead()
+    {
+        // Unlike pr list, gh pr create DOES take --head <owner>:<branch> for
+        // cross-repository fork PRs.
+        const string body = "body";
+        var host = new GitHubHost(ScmCommandFakes.Runner(new Dictionary<string, FakeCommandResponse>
+        {
+            ["gh pr create --head fork-owner:feature/x --base main --repo parent/repo --title title --body-file -"] = new(
+                Stdout: "https://github.com/parent/repo/pull/7\n", WantStdin: body),
+        }), null, "", "parent/repo", "fork-owner/repo");
+
+        var pr = await host.CreatePRAsync("feature/x", "main", new PullRequestContent("title", body));
+
+        Assert.Equal("7", pr.Number);
+        Assert.Equal("https://github.com/parent/repo/pull/7", pr.Url);
     }
 }

@@ -1,0 +1,9 @@
+Slice 6b.2 done. Docker build green: 416 tests pass (290 baseline + 126 new), zero warnings, first try. Committed as `f45526b`, STEPS.md marked `[x]`, NOTES.md updated.
+
+What landed in `NoMistakes.Scm`:
+
+- **Azure DevOps** (`AzureDevOps.Host`, az CLI via `CommandRunner`, same positional-ctor shape as 6b.1): availability probes `az extension show --name azure-devops` then org-scoped `az devops project list` auth check; create/update/show/policy-list wrappers with correct scoping (id-addressed commands get `--organization` only — az rejects `--project`/`--repository` there). Reads stdout only so az preview-notice stderr chatter cannot corrupt JSON; stderr surfaces in error messages instead. Policy evaluations filter to Build/Status types so approval gates never look like failing CI. `FetchFailedCheckLogsAsync` throws `NotSupportedException` (capability off, like Go).
+- **PRBody** helper (port of Go prbody.go): 4000-char UTF-16 clamp for Azure descriptions, surrogate-pair-safe cut, other providers unlimited.
+- **Bitbucket** — no CLI exists, so the "wrapper" is the HTTP client (`Bitbucket.Client`) plus `Bitbucket.Host`: auth check is `Client.FromEnv` requiring `NO_MISTAKES_BITBUCKET_EMAIL`/`_API_TOKEN` (explicit KEY=VALUE list preferred over ambient env); lookalike-host rejection in `ParseRepoRef`; pagination with the cross-origin `next`-link guard; 32 KiB step-log tail; full failed-check log walking that degrades to `""` on any lookup failure. Tests inject a fake `HttpMessageHandler` — no network.
+
+Deferred to 6c on purpose (matching 6b.1): IHost-level `FindPR` for both providers. Bitbucket's client-level `FindOpenPRBySourceBranchAsync` is ported now since its query construction was test-covered; az `repos pr list` waits entirely. Its Go coverage for stderr-chatter and parse errors moved onto the create/show paths so nothing was lost.

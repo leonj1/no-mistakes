@@ -46,6 +46,7 @@ public sealed class Findings
     public List<Finding> Items { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
     public string RiskLevel { get; set; } = string.Empty;
+    public string RiskRationale { get; set; } = string.Empty;
 
     /// <summary>
     /// Reports whether any finding warrants a fix - that is, any finding whose
@@ -102,6 +103,7 @@ public static class FindingsParser
         {
             Summary = wire.Summary ?? string.Empty,
             RiskLevel = wire.RiskLevel ?? string.Empty,
+            RiskRationale = wire.RiskRationale ?? string.Empty,
         };
         if (items != null)
         {
@@ -146,6 +148,9 @@ public static class FindingsParser
 
         [JsonPropertyName("risk_level")]
         public string? RiskLevel { get; set; }
+
+        [JsonPropertyName("risk_rationale")]
+        public string? RiskRationale { get; set; }
     }
 
     private sealed class FindingWire

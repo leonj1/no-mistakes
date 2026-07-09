@@ -24,8 +24,8 @@ The goal is to port `no-mistakes` as independently shippable behavior slices, no
 | 5. Shell process lifecycle | Done | `internal/shellenv` | `NoMistakes.Processes` |
 | 6. SCM URL parsing and host backends | Done | `internal/scm`, `internal/bitbucket` | `NoMistakes.Scm` |
 | 7. Daemon IPC and run lifecycle | Done | `internal/daemon`, `internal/ipc`, `internal/cimonitor` | `NoMistakes.Daemon`, `NoMistakes.Ipc` |
-| 8. AXI command surface and gates | Planned | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
-| 9. Pipeline executor and step contracts | Planned | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |
+| 8. AXI command surface and gates | Done | `internal/cli/axi*.go`, `internal/gate` | `NoMistakes.Cli`, `NoMistakes.Pipeline` |
+| 9. Pipeline executor and step contracts | Done | `internal/pipeline`, `internal/pipeline/steps` shared types | `NoMistakes.Pipeline` |
 | 10. Review, test, lint, and format steps | Planned | `internal/pipeline/steps/review.go`, `test.go`, `lint.go`, `format.go` | `NoMistakes.Pipeline.Steps` |
 | 11. Rebase, push, and force-push safety | Planned | `internal/pipeline/steps/rebase.go`, `push.go`, `forcepush.go` | `NoMistakes.Pipeline.Steps`, `NoMistakes.Git` |
 | 12. PR and MR creation | Planned | `internal/pipeline/steps/pr.go`, SCM backends | `NoMistakes.Pipeline.Steps`, `NoMistakes.Scm` |
@@ -244,6 +244,8 @@ Acceptance checks:
 
 ### 8. AXI Command Surface and Gates
 
+Status: Done.
+
 Port the agent-driving command surface, gate rendering, gate responses, help text, and parked awaiting-agent signal.
 
 Acceptance checks:
@@ -255,13 +257,47 @@ Acceptance checks:
 
 ### 9. Pipeline Executor and Step Contracts
 
+Status: Done.
+
 Port run orchestration, step state transitions, auto-fix loop contracts, run logging, step results, and cancellation propagation.
+
+Ported behavior (`NoMistakes.Pipeline`):
+
+- `IStep`/`StepContext`/`StepOutcome` mirror Go's `pipeline.Step`/`StepContext`/
+  `StepOutcome`. The native-agent handle is deferred to slice 14, so
+  `StepContext.Agent` is an opaque nullable placeholder.
+- `Executor.ExecuteAsync` runs steps sequentially: it marks the run running,
+  creates per-step `step_results` rows and a run log dir, executes each step,
+  and marks the run completed. Configured skips and outcome `SkipRemaining`
+  mark the affected steps skipped without running them.
+- The auto-fix loop mirrors Go: only `auto-fix`-action findings are fixed, it
+  runs before the approval check (so every severity gets a chance), respects the
+  per-step `AutoFixLimit` (review disabled by default), persists each execution
+  round via `InsertStepRound`, and records the selected finding IDs with source
+  `auto_fix`.
+- The approval gate composes the slice-8 `ApprovalGate`: a step that returns
+  `NeedsApproval` or carries an `ask-user` finding parks at
+  `awaiting_approval`/`fix_review`, sets the run-level awaiting-agent marker
+  before the parked step is observable, and resolves on `approve`/`skip`/`fix`.
+  The `fix` path re-executes with the user's selected + merged findings and
+  persists the follow-up round (with user findings and selection source `user`);
+  the `fix_review` diff comes from `git diff HEAD`.
+- Cancellation propagates via `CancellationToken`: a cancel while parked or
+  between steps fails the run (or marks it cancelled for the aborted/superseded
+  reasons), clears the parked marker, and fails the in-flight step. Telemetry
+  (Go's `telemetry.Track`) is deferred to a later slice.
 
 Acceptance checks:
 
-- Executor tests cover success, failure, skipped steps, approval gates, auto-fix limits, and cancellation.
-- Context cancellation reaches every subprocess or long-running operation.
+- Executor tests cover success, failure, configured and outcome skips, the
+  approval gate (approve/skip/fix), auto-fix trigger/limit/disabled, ask-user
+  parking without the `NeedsApproval` flag, round persistence, duration
+  override, PR-URL propagation, and cancellation.
+- Context cancellation reaches the parked wait and between-step boundaries; the
+  run reaches a terminal failed/cancelled state with the parked marker cleared.
 - Terminal run states match Go behavior.
+- `docker build -f Dockerfile.test.dotnet .` restores, builds, and runs the
+  suite (682 tests).
 
 ### 10. Review, Test, Lint, and Format Steps
 

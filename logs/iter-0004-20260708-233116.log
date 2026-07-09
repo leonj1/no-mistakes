@@ -1,0 +1,7 @@
+Slice 6a.2 genuinely done. No STEPS.md change needed.
+
+Verified:
+- `ProviderDetector.Detect` mirrors Go `internal/scm.DetectProvider`: substring match on well-known hosts (github.com, gitlab.com/`gitlab.`, bitbucket.org, dev.azure.com/visualstudio.com), fallback to glab `config.yml` (keys + `api_host`) and gh `hosts.yml` for self-hosted/enterprise, fail-closed on missing/malformed config.
+- `AzureDevOps.RemoteUrl.TryParseRemote` handles HTTPS, userinfo prefix, scp SSH `v3/` form, legacy visualstudio.com (incl. DefaultCollection), `.git` suffix, `/pullrequest/{id}` suffix, percent-decoded segments; rejects malformed.
+- Tests cover HTTPS/SSH/enterprise/subgroup/malformed for all four providers (`ProviderDetectorTests`, `AzureDevOpsRemoteUrlTests`), env vars pinned so host CLI config can't leak in.
+- Acceptance check: `docker build --no-cache -f Dockerfile.test.dotnet .` fresh run — `Passed! - Failed: 0, Passed: 197, Skipped: 0`.

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     name: PR must be raised via no-mistakes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     # Known automation accounts are exempt so the release pipeline keeps working:
     # - github-actions[bot] opens the release-please PR via GITHUB_TOKEN
     # - dependabot[bot] opens dependency update PRs

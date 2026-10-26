@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     name: Generated files must not be hand-edited
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     # release-please owns CHANGELOG.md and .release-please-manifest.json; its PR
     # is the one legitimate place those files change, so we exempt its author.
     if: >-

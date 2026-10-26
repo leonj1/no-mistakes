@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -28,7 +28,7 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   build-and-upload:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     strategy:
@@ -101,7 +101,7 @@ jobs:
           path: ${{ env.ARCHIVE }}
 
   checksums:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     needs:
       - release-please
       - build-and-upload
@@ -132,7 +132,7 @@ jobs:
         run: gh release upload "$TAG" checksums.txt --clobber
 
   finalize:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     needs:
       - release-please
       - build-and-upload
